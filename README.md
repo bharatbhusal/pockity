@@ -19,9 +19,13 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
   - Secure key storage with bcrypt hashing
   - Keys can be linked to different tiers
   - Revocation & activity tracking
+  - **NEW:** Automatic S3 folder creation for complete isolation
+  - **NEW:** Each API key gets its own storage namespace
 
 - 📂 **Advanced Storage Control**
-  - All users share the same S3 bucket with user-specific prefixes (`users/{userId}/`)
+  - All users share the same S3 bucket with intelligent prefix routing
+  - **API Key Storage:** Isolated folders using `apikeys/{accessKeyId}/` for complete separation
+  - **User Storage:** Traditional `users/{userId}/` prefix for JWT authentication (backward compatible)
   - Real-time quota enforcement before file uploads
   - Tier-based quotas (storage in GB, object count)
   - Real-time usage tracking with database synchronization
@@ -30,6 +34,7 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
   - **NEW:** Detailed file metadata and analytics
   - **NEW:** File categorization and storage analytics
   - **NEW:** Enhanced file listing with size calculations
+  - **NEW:** Automatic folder creation when generating API keys
 
 - 💳 **Comprehensive Billing System**
   - **FREE TIER:** All users currently get unlimited storage (stub implementation)
@@ -90,19 +95,33 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
 
 ## 🔒 Security & Data Isolation
 
-Pockity ensures complete data isolation between users through several security measures:
+Pockity ensures complete data isolation between users and API keys through several security measures:
 
-### User Storage Isolation
-- Each user's files are stored under a unique prefix: `users/{userId}/`
-- All storage operations validate user ownership before allowing access
-- Users cannot access or manipulate files belonging to other users
-- Presigned URLs are generated with user-specific permissions
+### Dual-Mode Storage Isolation
+
+#### API Key-Based Isolation
+- Each API key gets its own isolated folder: `apikeys/{accessKeyId}/`
+- Automatic folder creation when generating new API key pairs
+- Complete separation between different API keys, even from the same user
+- Perfect for multi-application or multi-environment usage
+
+#### User-Based Isolation (Legacy Support)
+- Traditional user folders: `users/{userId}/`
+- Maintains backward compatibility with JWT authentication
+- All existing user data remains accessible
+
+### Storage Operation Security
+- All storage operations validate ownership before allowing access
+- Users/API keys cannot access files belonging to others
+- Presigned URLs are generated with appropriate permissions
+- Intelligent prefix routing based on authentication method
 
 ### API Key Security
 - API keys use a two-part system: `accessKeyId` and `secretKey`
 - Secret keys are hashed using bcrypt before storage
 - Keys can be revoked instantly and have activity tracking
 - Each key can optionally be tied to specific tier permissions
+- Automatic S3 folder provisioning ensures immediate isolation
 
 ### Admin Controls
 - Admin-only endpoints for managing tier requests and approvals
@@ -256,14 +275,25 @@ curl -X GET http://localhost:8080/api/apikeys \
 
 ### Enhanced File Operations
 ```bash
-# Upload a file with quota checking
+# Upload with API key authentication (uses apikeys/{accessKeyId}/ folder)
+curl -X POST http://localhost:8080/api/storage/upload \
+  -H "x-access-key-id: pk_your_access_key" \
+  -H "x-secret-key: sk_your_secret_key" \
+  -F "file=@/path/to/your/file.txt"
+
+# Upload with JWT authentication (uses users/{userId}/ folder)
 curl -X POST http://localhost:8080/api/storage/upload \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -F "file=@/path/to/your/file.txt"
 
-# List user's files with metadata
+# List files (works with both authentication methods)
 curl -X GET http://localhost:8080/api/storage/files \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# List files with API key
+curl -X GET http://localhost:8080/api/storage/files \
+  -H "x-access-key-id: pk_your_access_key" \
+  -H "x-secret-key: sk_your_secret_key"
 
 # Get detailed file metadata
 curl -X GET http://localhost:8080/api/storage/files/filename.txt/metadata \

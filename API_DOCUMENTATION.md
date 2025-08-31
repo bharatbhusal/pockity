@@ -8,11 +8,49 @@ Pockity is a comprehensive cloud storage service similar to Cloudinary, providin
 
 ## Authentication
 
-Most endpoints require JWT authentication. Include the token in the Authorization header:
+Pockity supports two authentication methods:
+
+### 1. JWT Authentication
+Most endpoints support JWT authentication. Include the token in the Authorization header:
 
 ```
 Authorization: Bearer <your_jwt_token>
 ```
+
+### 2. API Key Authentication
+For programmatic access, you can use API key authentication with these headers:
+
+```
+x-access-key-id: <your_access_key_id>
+x-secret-key: <your_secret_key>
+```
+
+**Storage Isolation:**
+- **JWT Authentication:** Files are stored in `users/{userId}/` folders
+- **API Key Authentication:** Files are stored in `apikeys/{accessKeyId}/` folders for complete isolation
+
+**Important:** Each API key gets its own isolated storage space, separate from other API keys and user storage.
+
+## Storage Isolation
+
+Pockity implements automatic storage isolation based on your authentication method:
+
+### API Key Storage
+- **Folder Structure:** `apikeys/{accessKeyId}/`
+- **Isolation:** Complete separation between different API keys
+- **Creation:** Automatic folder provisioning when generating API keys
+- **Use Case:** Perfect for multi-application or multi-environment usage
+
+### User Storage (JWT)
+- **Folder Structure:** `users/{userId}/`
+- **Isolation:** Traditional user-based separation
+- **Backward Compatibility:** All existing user data remains accessible
+- **Use Case:** Direct user authentication and existing integrations
+
+### Cross-Authentication Access
+- Files uploaded with API key authentication are **not** accessible via JWT authentication
+- Files uploaded with JWT authentication are **not** accessible via API key authentication
+- This ensures complete isolation and security between different access methods
 
 ## Response Format
 
@@ -255,10 +293,28 @@ HTTP status codes:
 
 #### Upload File
 - **POST** `/storage/upload`
-- **Auth:** Required
+- **Auth:** Required (JWT or API Key)
 - **Content-Type:** `multipart/form-data`
-- **Description:** Upload a file with quota enforcement
+- **Description:** Upload a file with quota enforcement. Files are stored in different folders based on authentication method:
+  - JWT: `users/{userId}/filename`
+  - API Key: `apikeys/{accessKeyId}/filename`
 - **Body:** Form data with `file` field
+
+**Example with JWT:**
+```bash
+curl -X POST /storage/upload \
+  -H "Authorization: Bearer jwt_token" \
+  -F "file=@document.pdf"
+```
+
+**Example with API Key:**
+```bash
+curl -X POST /storage/upload \
+  -H "x-access-key-id: pk_your_access_key" \
+  -H "x-secret-key: sk_your_secret_key" \
+  -F "file=@document.pdf"
+```
+
 - **Response:**
 ```json
 {
@@ -266,7 +322,7 @@ HTTP status codes:
   "message": "File uploaded successfully",
   "data": {
     "fileName": "example.jpg",
-    "key": "users/user_id/example.jpg",
+    "key": "apikeys/pk_abc123/example.jpg",  // or "users/user_id/example.jpg"
     "url": "https://presigned-url.com",
     "size": 1048576,
     "contentType": "image/jpeg"
@@ -276,8 +332,23 @@ HTTP status codes:
 
 #### List Files
 - **GET** `/storage/files`
-- **Auth:** Required
-- **Description:** List all user's files
+- **Auth:** Required (JWT or API Key)
+- **Description:** List all files accessible to the authenticated user/API key. Returns files from:
+  - JWT: `users/{userId}/` folder
+  - API Key: `apikeys/{accessKeyId}/` folder
+
+**Example with JWT:**
+```bash
+curl -X GET /storage/files \
+  -H "Authorization: Bearer jwt_token"
+```
+
+**Example with API Key:**
+```bash
+curl -X GET /storage/files \
+  -H "x-access-key-id: pk_your_access_key" \
+  -H "x-secret-key: sk_your_secret_key"
+```
 - **Response:**
 ```json
 {
@@ -300,8 +371,8 @@ HTTP status codes:
 
 #### Get File Download URL
 - **GET** `/storage/files/:fileName`
-- **Auth:** Required
-- **Description:** Get presigned download URL for a file
+- **Auth:** Required (JWT or API Key)
+- **Description:** Get presigned download URL for a file. Looks for files in the appropriate folder based on authentication method.
 - **Response:**
 ```json
 {
@@ -319,8 +390,8 @@ HTTP status codes:
 
 #### Get File Metadata
 - **GET** `/storage/files/:fileName/metadata`
-- **Auth:** Required
-- **Description:** Get detailed file metadata
+- **Auth:** Required (JWT or API Key)
+- **Description:** Get detailed file metadata. Accesses files from the appropriate folder based on authentication method.
 - **Response:**
 ```json
 {
@@ -341,8 +412,8 @@ HTTP status codes:
 
 #### Delete File
 - **DELETE** `/storage/files/:fileName`
-- **Auth:** Required
-- **Description:** Delete a file
+- **Auth:** Required (JWT or API Key)
+- **Description:** Delete a file from the appropriate storage folder based on authentication method.
 - **Response:**
 ```json
 {
@@ -356,8 +427,8 @@ HTTP status codes:
 
 #### Bulk Delete Files
 - **POST** `/storage/files/bulk-delete`
-- **Auth:** Required
-- **Description:** Delete multiple files at once
+- **Auth:** Required (JWT or API Key)
+- **Description:** Delete multiple files at once from the appropriate storage folder based on authentication method.
 - **Body:**
 ```json
 {
@@ -400,8 +471,8 @@ HTTP status codes:
 
 #### Get Storage Usage
 - **GET** `/storage/usage`
-- **Auth:** Required
-- **Description:** Get storage usage statistics with quota info
+- **Auth:** Required (JWT or API Key)
+- **Description:** Get storage usage statistics with quota info for the authenticated user/API key's storage space.
 - **Response:**
 ```json
 {
@@ -427,8 +498,8 @@ HTTP status codes:
 
 #### Get Storage Analytics
 - **GET** `/storage/analytics`
-- **Auth:** Required
-- **Description:** Get detailed storage analytics
+- **Auth:** Required (JWT or API Key)
+- **Description:** Get detailed storage analytics for the authenticated user/API key's storage space.
 - **Response:**
 ```json
 {
@@ -478,7 +549,7 @@ HTTP status codes:
 #### Generate API Key
 - **POST** `/apikeys`
 - **Auth:** Required
-- **Description:** Generate a new API key pair
+- **Description:** Generate a new API key pair. Automatically creates an isolated S3 storage folder at `apikeys/{accessKeyId}/` for complete storage separation.
 - **Body:**
 ```json
 {
@@ -493,13 +564,15 @@ HTTP status codes:
   "message": "API key created successfully",
   "data": {
     "id": "key_id",
-    "accessKeyId": "access_key",
-    "secretKey": "secret_key",
+    "accessKeyId": "pk_abc123def456",
+    "secretKey": "sk_xyz789uvw012",
     "name": "My API Key",
     "createdAt": "2024-01-01T00:00:00.000Z"
   }
 }
 ```
+
+**Note:** The response includes both `accessKeyId` and `secretKey`. Store these securely as the secret key cannot be retrieved again. The system automatically provisions an isolated S3 folder for this API key.
 
 #### List API Keys
 - **GET** `/apikeys`
