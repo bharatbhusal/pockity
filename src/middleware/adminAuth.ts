@@ -4,7 +4,7 @@ import { PockityErrorUnauthorized } from "../utils/response/PockityErrorClasses"
 
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user; // From JWT middleware
+    const userId = req.userId; // From JWT middleware
 
     if (!userId) {
       throw new PockityErrorUnauthorized({
