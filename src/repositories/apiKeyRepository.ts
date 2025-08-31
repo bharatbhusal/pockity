@@ -1,4 +1,4 @@
-import { prisma } from "@/config/prisma";
+import { prisma } from "../config/prisma";
 
 export const ApiKeyRepository = {
   create: (data: any) => prisma.apiKey.create({ data }),

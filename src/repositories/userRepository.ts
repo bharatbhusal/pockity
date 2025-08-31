@@ -1,4 +1,4 @@
-import { prisma } from "@/config/prisma";
+import { prisma } from "../config/prisma";
 
 export const UserRepository = {
   create: (data: any) => prisma.user.create({ data }),
