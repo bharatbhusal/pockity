@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import multer from "multer";
 import { S3Service } from "../services/s3Service";
+import { UsageService } from "../services/usageService";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
@@ -48,10 +49,21 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
       });
     }
 
-    // TODO: Check user's quota limits here
-    // For now, we'll allow the upload
-
     const { originalname, buffer, mimetype } = req.file;
+
+    // Check user's quota limits here
+    const quotaCheck = await UsageService.checkQuotaLimits(userId, buffer.length);
+    if (!quotaCheck.canUpload) {
+      throw new PockityErrorBadRequest({
+        message: "Upload would exceed quota limits",
+        httpStatusCode: 413,
+        details: {
+          quotaExceeded: quotaCheck.quotaExceeded,
+          maxBytes: quotaCheck.maxBytes.toString(),
+          maxObjects: quotaCheck.maxObjects,
+        },
+      });
+    }
 
     // Upload to S3
     const result = await S3Service.uploadFile({
@@ -61,7 +73,8 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
       contentType: mimetype,
     });
 
-    // TODO: Update user's usage statistics in the database
+    // Update user's usage statistics in the database
+    await UsageService.incrementUsage(userId, buffer.length, originalname);
 
     res.status(201).json(
       new PockityBaseResponse({
@@ -107,13 +120,14 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
     }
 
     try {
-      // Get file info first to check if it exists
-      await S3Service.getFileInfo(userId, fileName);
+      // Get file info first to check if it exists and get size
+      const fileInfo = await S3Service.getFileInfo(userId, fileName);
 
       // Delete from S3
       await S3Service.deleteFile(userId, fileName);
 
-      // TODO: Update user's usage statistics in the database
+      // Update user's usage statistics in the database
+      await UsageService.decrementUsage(userId, fileInfo.size, fileName);
 
       res.status(200).json(
         new PockityBaseResponse({
@@ -242,17 +256,24 @@ export const getStorageUsageController = async (req: Request, res: Response, nex
       });
     }
 
-    // Get storage usage from S3
-    const usage = await S3Service.getUserStorageUsage(userId);
+    // Get storage usage with quota information
+    const usageData = await UsageService.getUsageWithQuota(userId);
 
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
         message: "Storage usage retrieved successfully",
         data: {
-          totalBytes: usage.totalBytes,
-          totalSizeGB: Math.round((usage.totalBytes / (1024 * 1024 * 1024)) * 100) / 100,
-          objectCount: usage.objectCount,
+          totalBytes: usageData.usage.bytesUsed.toString(),
+          totalSizeGB: Math.round((Number(usageData.usage.bytesUsed) / (1024 * 1024 * 1024)) * 100) / 100,
+          objectCount: usageData.usage.objects,
+          lastUpdated: usageData.usage.lastUpdated,
+          quota: {
+            maxBytes: usageData.quota.maxBytes.toString(),
+            maxSizeGB: Math.round((Number(usageData.quota.maxBytes) / (1024 * 1024 * 1024)) * 100) / 100,
+            maxObjects: usageData.quota.maxObjects,
+          },
+          usagePercentage: usageData.usagePercentage,
         },
       }),
     );
