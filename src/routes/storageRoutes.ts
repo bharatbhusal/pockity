@@ -10,12 +10,12 @@ import {
   getStorageAnalyticsController,
   uploadMiddleware,
 } from "../controllers/storageControllers";
-import { jwtAuth } from "../middleware/jwtAuth";
 import { apiKeyAuth } from "@/middleware/apiKeyAuth";
 
 const router = Router();
 
 // All storage routes require authentication
+// Accessible only with API key. Inaccessible with user JWT
 router.use(apiKeyAuth);
 
 // POST /storage/upload - Upload a file

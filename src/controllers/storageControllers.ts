@@ -42,8 +42,7 @@ const bulkDeleteSchema = z.object({
 // Upload file endpoint
 export const uploadFileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT or API key middleware
-    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     if (!req.file) {
       throw new PockityErrorInvalidInput({
@@ -52,19 +51,10 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
       });
     }
 
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
-
     const { originalname, buffer, mimetype } = req.file;
 
     // Check user's quota limits here
-    const quotaCheck = await UsageService.checkQuotaLimits(userId, buffer.length);
+    const quotaCheck = await UsageService.checkQuotaLimits(apiAccessKeyId, buffer.length);
     if (!quotaCheck.canUpload) {
       throw new PockityErrorBadRequest({
         message: "Upload would exceed quota limits",
@@ -79,15 +69,14 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
 
     // Upload to S3 with appropriate prefix (API key or user-based)
     const result = await S3Service.uploadFile({
-      userId,
       fileName: originalname,
       fileBuffer: buffer,
       contentType: mimetype,
-      accessKeyId,
+      apiAccessKeyId,
     });
 
     // Update user's usage statistics in the database
-    await UsageService.incrementUsage(userId, buffer.length, originalname);
+    await UsageService.incrementUsage(apiAccessKeyId, buffer.length, originalname);
 
     res.status(201).json(
       new PockityBaseResponse({
@@ -121,27 +110,17 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT or API key middleware
-    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     try {
       // Get file info first to check if it exists and get size
-      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
+      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
 
       // Delete from S3
-      await S3Service.deleteFile(userId, fileName, accessKeyId);
+      await S3Service.deleteFile(fileName, apiAccessKeyId);
 
       // Update user's usage statistics in the database
-      await UsageService.decrementUsage(userId, fileInfo.size, fileName);
+      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
 
       res.status(200).json(
         new PockityBaseResponse({
@@ -180,22 +159,12 @@ export const getFileController = async (req: Request, res: Response, next: NextF
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT or API key middleware
-    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     try {
       // Get file info and generate presigned URL
-      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
-      const prefix = S3Service.getStoragePrefix(userId, accessKeyId);
+      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
+      const prefix = `${apiAccessKeyId}/`;
       const url = await S3Service.getSignedUrl(`${prefix}${fileName}`);
 
       res.status(200).json(
@@ -228,20 +197,10 @@ export const getFileController = async (req: Request, res: Response, next: NextF
 // List all files for the user
 export const listFilesController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT or API key middleware
-    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     // Get all files for the user or API key
-    const files = await S3Service.listUserFiles(userId, accessKeyId);
+    const files = await S3Service.listUserFiles(apiAccessKeyId);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -262,19 +221,10 @@ export const listFilesController = async (req: Request, res: Response, next: Nex
 // Get user's storage usage
 export const getStorageUsageController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     // Get storage usage with quota information
-    const usageData = await UsageService.getUsageWithQuota(userId);
+    const usageData = await UsageService.getUsageWithQuota(apiAccessKeyId);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -316,22 +266,12 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT or API key middleware
-    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     try {
       // Get detailed file metadata
-      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
-      const prefix = S3Service.getStoragePrefix(userId, accessKeyId);
+      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
+      const prefix = `${apiAccessKeyId}/`;
       const presignedUrl = await S3Service.getSignedUrl(`${prefix}${fileName}`);
 
       res.status(200).json(
@@ -378,16 +318,8 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
     }
 
     const { fileNames } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
 
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     const results = [];
     let totalSizeDeleted = 0;
@@ -395,13 +327,13 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
     for (const fileName of fileNames) {
       try {
         // Get file info first
-        const fileInfo = await S3Service.getFileInfo(userId, fileName);
+        const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
 
         // Delete from S3
-        await S3Service.deleteFile(userId, fileName);
+        await S3Service.deleteFile(fileName, apiAccessKeyId);
 
         // Update usage statistics
-        await UsageService.decrementUsage(userId, fileInfo.size, fileName);
+        await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
 
         totalSizeDeleted += fileInfo.size;
 
@@ -446,20 +378,11 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
 // Get storage analytics
 export const getStorageAnalyticsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
     // Get all files to analyze
-    const files = await S3Service.listUserFiles(userId);
-    const usageData = await UsageService.getUsageWithQuota(userId);
+    const files = await S3Service.listUserFiles(apiAccessKeyId);
+    const usageData = await UsageService.getUsageWithQuota(apiAccessKeyId);
 
     // Analyze file types
     const fileTypeAnalysis: Record<string, { count: number; totalSize: number }> = {};

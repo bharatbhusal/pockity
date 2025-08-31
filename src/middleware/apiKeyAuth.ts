@@ -6,10 +6,10 @@ import { PockityErrorAuthentication } from "../utils/response/PockityErrorClasse
 export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Extract API key credentials from headers
-    const accessKeyId = req.headers["x-access-key-id"] as string;
+    const apiAccessKeyId = req.headers["x-access-key-id"] as string;
     const secretKey = req.headers["x-secret-key"] as string;
 
-    if (!accessKeyId || !secretKey) {
+    if (!apiAccessKeyId || !secretKey) {
       throw new PockityErrorAuthentication({
         message: "API key credentials are required. Provide x-access-key-id and x-secret-key headers.",
         httpStatusCode: 401,
@@ -17,7 +17,7 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     }
 
     // Find the API key in database
-    const apiKey = await ApiKeyRepository.findByAccessKey(accessKeyId);
+    const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
     if (!apiKey) {
       throw new PockityErrorAuthentication({
         message: "Invalid API key",
@@ -48,9 +48,7 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     });
 
     // Add user information and API key information to request object
-    req.userId = apiKey.userId;
-    req.accessKeyId = apiKey.accessKeyId;
-
+    req.apiAccessKeyId = apiKey.accessKeyId;
     next();
   } catch (error) {
     next(error);

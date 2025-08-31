@@ -1,8 +1,9 @@
 declare global {
   namespace Express {
     interface Request {
-      userId?: string;
-      accessKeyId?: string;
+      user?: any;
+      adminUser?: any;
+      apiAccessKeyId?: string;
     }
   }
 }

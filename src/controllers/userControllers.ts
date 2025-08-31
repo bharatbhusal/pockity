@@ -3,11 +3,7 @@ import { z } from "zod";
 import { UserRepository } from "../repositories/userRepository";
 import { UsageService } from "../services/usageService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import {
-  PockityErrorInvalidInput,
-  PockityErrorNotFound,
-  PockityErrorBadRequest,
-} from "../utils/response/PockityErrorClasses";
+import { PockityErrorInvalidInput, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
 
 // Validation schemas
 const updateProfileSchema = z.object({
@@ -23,18 +19,9 @@ const changePasswordSchema = z.object({
 // Get user profile
 export const getUserProfileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
-
+    const user = req.user;
     // Get usage and billing information
-    const usageData = await UsageService.getUsageWithQuota(userId);
+    const usageData = await UsageService.getUsageWithQuota(user.id);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -68,8 +55,6 @@ export const getUserProfileController = async (req: Request, res: Response, next
 // Update user profile
 export const updateUserProfileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
     // Validate request body
     const validationResult = updateProfileSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -81,20 +66,12 @@ export const updateUserProfileController = async (req: Request, res: Response, n
     }
 
     const { name, email } = validationResult.data;
-
-    // Check if user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const user = req.user;
 
     // Check if email is already taken by another user
     if (email && email !== user.email) {
       const existingUser = await UserRepository.findByEmail(email);
-      if (existingUser && existingUser.id !== userId) {
+      if (existingUser && existingUser.id !== user.id) {
         throw new PockityErrorBadRequest({
           message: "Email is already taken",
           httpStatusCode: 409,
@@ -110,7 +87,7 @@ export const updateUserProfileController = async (req: Request, res: Response, n
       updateData.emailVerified = false; // Re-verify email if changed
     }
 
-    const updatedUser = await UserRepository.update(userId, updateData);
+    const updatedUser = await UserRepository.update(user.id, updateData);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -136,8 +113,6 @@ export const updateUserProfileController = async (req: Request, res: Response, n
 // Change user password
 export const changePasswordController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
     // Validate request body
     const validationResult = changePasswordSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -149,15 +124,7 @@ export const changePasswordController = async (req: Request, res: Response, next
     }
 
     const { currentPassword, newPassword } = validationResult.data;
-
-    // Get user
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const user = req.user;
 
     // Verify current password
     const bcrypt = require("bcrypt");
@@ -172,7 +139,7 @@ export const changePasswordController = async (req: Request, res: Response, next
     const newPasswordHash = await bcrypt.hash(newPassword, 12);
 
     // Update password
-    await UserRepository.update(userId, {
+    await UserRepository.update(user.id, {
       passwordHash: newPasswordHash,
     });
 
@@ -191,25 +158,15 @@ export const changePasswordController = async (req: Request, res: Response, next
 // Delete user account
 export const deleteUserAccountController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
-    // Check if user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
-
+    const user = req.user;
     // TODO: In a real implementation, we should:
     // 1. Delete all user's files from S3
     // 2. Delete related data (API keys, usage records, etc.)
 
     // For now, we'll just mark the account as deleted by setting a flag
     // In a real system, you might want to anonymize data instead of hard delete
-    await UserRepository.update(userId, {
-      email: `deleted_${userId}@example.com`,
+    await UserRepository.update(user.id, {
+      email: `deleted_${user.id}@example.com`,
       name: "Deleted User",
       emailVerified: false,
     });
@@ -229,18 +186,10 @@ export const deleteUserAccountController = async (req: Request, res: Response, n
 // Get account summary with all important information
 export const getAccountSummaryController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
+    const user = req.user;
 
     // Get comprehensive account information
-    const usageData = await UsageService.getUsageWithQuota(userId);
+    const usageData = await UsageService.getUsageWithQuota(user.id);
 
     res.status(200).json(
       new PockityBaseResponse({

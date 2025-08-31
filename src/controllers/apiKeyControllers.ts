@@ -35,11 +35,10 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { name } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
+
+    if (!req.user) {
       throw new PockityErrorNotFound({
         message: "User not found",
         httpStatusCode: 404,
@@ -47,7 +46,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     }
 
     // Generate API key pair
-    const accessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
+    const apiAccessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
     const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
 
     // Hash the secret key before storing
@@ -55,18 +54,18 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
 
     // Create API key in database
     const apiKey = await ApiKeyRepository.create({
-      accessKeyId,
+      apiAccessKeyId,
       secretHash,
       name,
-      userId,
+      userId: req.user.id,
     });
 
     // Create the corresponding S3 folder for this API key
     try {
-      await S3Service.createApiKeyFolder(accessKeyId);
+      await S3Service.createApiKeyFolder(apiAccessKeyId);
     } catch (error) {
       // Log the error but don't fail the API key creation
-      console.error(`Failed to create S3 folder for API key ${accessKeyId}:`, error);
+      console.error(`Failed to create S3 folder for API key ${apiAccessKeyId}:`, error);
     }
 
     res.status(201).json(
@@ -75,7 +74,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
         message: "API key created successfully",
         data: {
           id: apiKey.id,
-          accessKeyId: apiKey.accessKeyId,
+          apiAccessKeyId: apiKey.accessKeyId,
           secretKey, // Only shown once during creation
           name: apiKey.name,
           isActive: apiKey.isActive,
@@ -90,15 +89,13 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
 
 export const listApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
-
     // Get all API keys for the user
-    const apiKeys = await ApiKeyRepository.findByUserId(userId);
+    const apiKeys = await ApiKeyRepository.findByUserId(req.user.id);
 
     // Don't return secret hashes
     const sanitizedKeys = apiKeys.map((key: any) => ({
       id: key.id,
-      accessKeyId: key.accessKeyId,
+      apiAccessKeyId: key.apiAccessKeyId,
       name: key.name,
       isActive: key.isActive,
       createdAt: key.createdAt,
@@ -131,7 +128,6 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { id } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
@@ -143,7 +139,7 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     }
 
     // Verify ownership
-    if (apiKey.userId !== userId) {
+    if (apiKey.userId !== req.user.id) {
       throw new PockityErrorUnauthorized({
         message: "Unauthorized to revoke this API key",
         httpStatusCode: 403,
@@ -162,7 +158,7 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
         message: "API key revoked successfully",
         data: {
           id: revokedKey.id,
-          accessKeyId: revokedKey.accessKeyId,
+          apiAccessKeyId: revokedKey.accessKeyId,
           name: revokedKey.name,
           isActive: revokedKey.isActive,
           revokedAt: revokedKey.revokedAt,
@@ -177,7 +173,6 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
 export const getApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const userId = req.userId!; // From JWT middleware
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
@@ -189,7 +184,7 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
     }
 
     // Verify ownership
-    if (apiKey.userId !== userId) {
+    if (apiKey.userId !== req.user.id) {
       throw new PockityErrorUnauthorized({
         message: "Unauthorized to access this API key",
         httpStatusCode: 403,
@@ -203,7 +198,7 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
         message: "API key retrieved successfully",
         data: {
           id: apiKey.id,
-          accessKeyId: apiKey.accessKeyId,
+          apiAccessKeyId: apiKey.accessKeyId,
           name: apiKey.name,
           isActive: apiKey.isActive,
           createdAt: apiKey.createdAt,

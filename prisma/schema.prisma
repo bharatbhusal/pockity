@@ -31,9 +31,7 @@ model User {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  apiKeys      ApiKey[]
-  currentUsage UsageCurrent?
-  auditLogs    AuditLog[]
+  apiKeys ApiKey[]
 }
 
 //  ApiKey: many keys per user.
@@ -53,6 +51,9 @@ model ApiKey {
   revokedAt   DateTime?
   metadata    Json?
 
+  currentUsage UsageCurrent?
+  auditLogs    AuditLog[]
+
   @@index([userId])
 }
 
@@ -62,25 +63,25 @@ model ApiKey {
 //  - lastUpdated: timestamp of last change
 //  - This acts as a fast counter. Snapshots (UsageSnapshot) provide history.
 model UsageCurrent {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
-  bytesUsed   BigInt   @default(0)
-  objects     Int      @default(0)
-  lastUpdated DateTime @default(now())
+  id             String   @id @default(cuid())
+  apiAccessKeyId String   @unique
+  apiAccessKey   ApiKey   @relation(fields: [apiAccessKeyId], references: [accessKeyId])
+  bytesUsed      BigInt   @default(0)
+  objects        Int      @default(0)
+  lastUpdated    DateTime @default(now())
 }
 
 //  AuditLog: immutable logs for important actions (apikey create/revoke, tier requests, payments)
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  actorId   String? // admin or system actor id (nullable)
-  action    String // short action key, e.g., 'APIKEY_CREATE', 'TIER_APPROVE'
-  detail    String? // human readable detail
-  metadata  Json?
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  apiAccessKeyId String?
+  apiAccessKey   ApiKey?  @relation(fields: [apiAccessKeyId], references: [accessKeyId])
+  actorId        String? // admin or system actor id (nullable)
+  action         String // short action key, e.g., 'APIKEY_CREATE', 'TIER_APPROVE'
+  detail         String? // human readable detail
+  metadata       Json?
+  createdAt      DateTime @default(now())
 
-  @@index([userId])
+  @@index([apiAccessKeyId])
   @@index([action])
 }

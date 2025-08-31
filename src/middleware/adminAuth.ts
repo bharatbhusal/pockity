@@ -4,21 +4,11 @@ import { PockityErrorUnauthorized } from "../utils/response/PockityErrorClasses"
 
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId; // From JWT middleware
-
-    if (!userId) {
-      throw new PockityErrorUnauthorized({
-        message: "Authentication required",
-        httpStatusCode: 401,
-      });
-    }
-
-    // Get user from database to check role
-    const user = await UserRepository.findById(userId);
+    const user = req.user; // From JWT middleware
 
     if (!user) {
       throw new PockityErrorUnauthorized({
-        message: "User not found",
+        message: "Authentication required",
         httpStatusCode: 401,
       });
     }

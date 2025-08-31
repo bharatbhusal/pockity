@@ -18,13 +18,13 @@ export const UsageService = {
   /**
    * Get current usage for a user
    */
-  async getCurrentUsage(userId: string): Promise<UsageStats> {
-    let usage = await UsageCurrentRepository.findByUserId(userId);
+  async getCurrentUsage(apiAccessKeyId: string): Promise<UsageStats> {
+    let usage = await UsageCurrentRepository.findByApiAccessKeyId(apiAccessKeyId);
 
     if (!usage) {
       // Initialize usage if not exists
       usage = await UsageCurrentRepository.create({
-        userId,
+        apiAccessKeyId,
         bytesUsed: BigInt(0),
         objects: 0,
         lastUpdated: new Date(),
@@ -41,9 +41,9 @@ export const UsageService = {
   /**
    * Check if user can upload a file based on quota limits
    */
-  async checkQuotaLimits(userId: string, fileSizeBytes: number): Promise<QuotaLimits> {
+  async checkQuotaLimits(apiAccessKeyId: string, fileSizeBytes: number): Promise<QuotaLimits> {
     // Get current usage
-    const currentUsage = await this.getCurrentUsage(userId);
+    const currentUsage = await this.getCurrentUsage(apiAccessKeyId);
 
     // Default to a basic free tier if no subscription
     let maxBytes = BigInt(1024 * 1024 * 1024); // 1GB default
@@ -67,8 +67,8 @@ export const UsageService = {
   /**
    * Update usage when a file is uploaded
    */
-  async incrementUsage(userId: string, fileSizeBytes: number, fileName: string): Promise<void> {
-    await UsageCurrentRepository.upsertByUserId(userId, {
+  async incrementUsage(apiAccessKeyId: string, fileSizeBytes: number, fileName: string): Promise<void> {
+    await UsageCurrentRepository.upsertByApiAccessKeyId(apiAccessKeyId, {
       bytesUsed: {
         increment: BigInt(fileSizeBytes),
       },
@@ -80,7 +80,7 @@ export const UsageService = {
 
     // Log the action
     await AuditLogRepository.create({
-      userId,
+      apiAccessKeyId,
       action: "STORAGE_UPLOAD",
       detail: `Uploaded file: ${fileName}`,
       metadata: {
@@ -94,14 +94,14 @@ export const UsageService = {
   /**
    * Update usage when a file is deleted
    */
-  async decrementUsage(userId: string, fileSizeBytes: number, fileName: string): Promise<void> {
-    const currentUsage = await this.getCurrentUsage(userId);
+  async decrementUsage(apiAccessKeyId: string, fileSizeBytes: number, fileName: string): Promise<void> {
+    const currentUsage = await this.getCurrentUsage(apiAccessKeyId);
 
     // Ensure we don't go below zero
     const newBytesUsed = currentUsage.bytesUsed - BigInt(fileSizeBytes);
     const newObjectCount = Math.max(0, currentUsage.objects - 1);
 
-    await UsageCurrentRepository.updateByUserId(userId, {
+    await UsageCurrentRepository.updateByApiAccessKeyId(apiAccessKeyId, {
       bytesUsed: newBytesUsed >= 0 ? newBytesUsed : BigInt(0),
       objects: newObjectCount,
       lastUpdated: new Date(),
@@ -109,7 +109,7 @@ export const UsageService = {
 
     // Log the action
     await AuditLogRepository.create({
-      userId,
+      apiAccessKeyId,
       action: "STORAGE_DELETE",
       detail: `Deleted file: ${fileName}`,
       metadata: {
@@ -123,7 +123,7 @@ export const UsageService = {
   /**
    * Get usage statistics with quota information
    */
-  async getUsageWithQuota(userId: string): Promise<{
+  async getUsageWithQuota(apiAccessKeyId: string): Promise<{
     usage: UsageStats;
     quota: QuotaLimits;
     usagePercentage: {
@@ -131,8 +131,8 @@ export const UsageService = {
       objects: number;
     };
   }> {
-    const usage = await this.getCurrentUsage(userId);
-    const quota = await this.checkQuotaLimits(userId, 0); // Check without adding any file
+    const usage = await this.getCurrentUsage(apiAccessKeyId);
+    const quota = await this.checkQuotaLimits(apiAccessKeyId, 0); // Check without adding any file
 
     const bytesPercentage = (Number(usage.bytesUsed) / Number(quota.maxBytes)) * 100;
     const objectsPercentage = (usage.objects / quota.maxObjects) * 100;
