@@ -15,7 +15,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
 
     // Get user from database to check role
     const user = await UserRepository.findById(userId);
-    
+
     if (!user) {
       throw new PockityErrorUnauthorized({
         message: "User not found",
@@ -37,12 +37,3 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
     next(error);
   }
 };
-
-// Extend Express Request interface to include adminUser
-declare global {
-  namespace Express {
-    interface Request {
-      adminUser?: any;
-    }
-  }
-}

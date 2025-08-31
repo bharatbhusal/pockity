@@ -4,7 +4,11 @@ import { TierRequestRepository } from "../repositories/tierRequestRepository";
 import { TierRepository } from "../repositories/tierRepository";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { PockityErrorInvalidInput, PockityErrorNotFound, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
+import {
+  PockityErrorInvalidInput,
+  PockityErrorNotFound,
+  PockityErrorBadRequest,
+} from "../utils/response/PockityErrorClasses";
 
 // Validation schemas
 const createTierRequestSchema = z.object({
@@ -32,7 +36,7 @@ export const createTierRequestController = async (req: Request, res: Response, n
     }
 
     const { tierId, reason } = validationResult.data;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -91,7 +95,7 @@ export const createTierRequestController = async (req: Request, res: Response, n
 // User endpoint: Get own tier requests
 export const getUserTierRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     const tierRequests = await TierRequestRepository.findByUserId(userId);
 
@@ -113,7 +117,7 @@ export const getAllTierRequestsController = async (req: Request, res: Response, 
     const { status } = req.query;
 
     let tierRequests;
-    if (status && typeof status === 'string') {
+    if (status && typeof status === "string") {
       tierRequests = await TierRequestRepository.findByStatus(status.toUpperCase());
     } else {
       tierRequests = await TierRequestRepository.listWithDetails();
@@ -145,7 +149,7 @@ export const approveTierRequestController = async (req: Request, res: Response, 
     }
 
     const { id, approved, reason } = validationResult.data;
-    const adminId = req.user!; // From JWT middleware (admin)
+    const adminId = req.adminUser!.id; // From JWT middleware (admin)
 
     // Find the tier request
     const tierRequest = await TierRequestRepository.findById(id);
@@ -178,7 +182,7 @@ export const approveTierRequestController = async (req: Request, res: Response, 
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
-        message: `Tier request ${approved ? 'approved' : 'rejected'} successfully`,
+        message: `Tier request ${approved ? "approved" : "rejected"} successfully`,
         data: {
           id: updatedRequest.id,
           status: updatedRequest.status,

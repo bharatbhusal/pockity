@@ -4,7 +4,11 @@ import multer from "multer";
 import { S3Service } from "../services/s3Service";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { PockityErrorInvalidInput, PockityErrorNotFound, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
+import {
+  PockityErrorInvalidInput,
+  PockityErrorNotFound,
+  PockityErrorBadRequest,
+} from "../utils/response/PockityErrorClasses";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -26,7 +30,7 @@ const getFileSchema = z.object({
 // Upload file endpoint
 export const uploadFileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     if (!req.file) {
       throw new PockityErrorInvalidInput({
@@ -91,7 +95,7 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -105,7 +109,7 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
     try {
       // Get file info first to check if it exists
       await S3Service.getFileInfo(userId, fileName);
-      
+
       // Delete from S3
       await S3Service.deleteFile(userId, fileName);
 
@@ -121,7 +125,7 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
         }),
       );
     } catch (error: any) {
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
         throw new PockityErrorNotFound({
           message: "File not found",
           httpStatusCode: 404,
@@ -148,7 +152,7 @@ export const getFileController = async (req: Request, res: Response, next: NextF
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -178,7 +182,7 @@ export const getFileController = async (req: Request, res: Response, next: NextF
         }),
       );
     } catch (error: any) {
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
         throw new PockityErrorNotFound({
           message: "File not found",
           httpStatusCode: 404,
@@ -194,7 +198,7 @@ export const getFileController = async (req: Request, res: Response, next: NextF
 // List all files for the user
 export const listFilesController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -227,7 +231,7 @@ export const listFilesController = async (req: Request, res: Response, next: Nex
 // Get user's storage usage
 export const getStorageUsageController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -258,4 +262,4 @@ export const getStorageUsageController = async (req: Request, res: Response, nex
 };
 
 // Middleware for handling file uploads
-export const uploadMiddleware = upload.single('file');
+export const uploadMiddleware = upload.single("file");

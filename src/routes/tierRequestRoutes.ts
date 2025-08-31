@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { 
+import {
   createTierRequestController,
   getUserTierRequestsController,
   getAllTierRequestsController,
-  approveTierRequestController
+  approveTierRequestController,
 } from "../controllers/tierRequestControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
 import { adminAuth } from "../middleware/adminAuth";

@@ -34,7 +34,8 @@ export { app as ExpressApplication };
 declare global {
   namespace Express {
     interface Request {
-      user?: string;
+      userId?: string;
+      adminUser?: any;
     }
   }
 }

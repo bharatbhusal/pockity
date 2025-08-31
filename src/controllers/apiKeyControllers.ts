@@ -5,7 +5,11 @@ import bcrypt from "bcrypt";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { PockityErrorInvalidInput, PockityErrorNotFound, PockityErrorUnauthorized } from "../utils/response/PockityErrorClasses";
+import {
+  PockityErrorInvalidInput,
+  PockityErrorNotFound,
+  PockityErrorUnauthorized,
+} from "../utils/response/PockityErrorClasses";
 
 // Validation schemas
 const createApiKeySchema = z.object({
@@ -30,7 +34,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { name, tierId } = validationResult.data;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -42,9 +46,9 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     }
 
     // Generate API key pair
-    const accessKeyId = `pk_${crypto.randomBytes(16).toString('hex')}`;
-    const secretKey = `sk_${crypto.randomBytes(32).toString('hex')}`;
-    
+    const accessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
+    const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
+
     // Hash the secret key before storing
     const secretHash = await bcrypt.hash(secretKey, 12);
 
@@ -79,7 +83,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
 
 export const listApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Get all API keys for the user
     const apiKeys = await ApiKeyRepository.findByUserId(userId);
@@ -121,7 +125,7 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { id } = validationResult.data;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
@@ -167,7 +171,7 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
 export const getApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const userId = req.user!; // From JWT middleware
+    const userId = req.userId!; // From JWT middleware
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
