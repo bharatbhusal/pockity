@@ -1,0 +1,75 @@
+import { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import { AuthService } from "../services/authService";
+import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
+import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
+
+// Validation schemas
+const registerSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters long"),
+  name: z.string().optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const registerController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Validate request body
+    const validationResult = registerSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      throw new PockityErrorInvalidInput({
+        message: "Invalid input data",
+        details: validationResult.error.errors,
+        httpStatusCode: 400,
+      });
+    }
+
+    const { email, password, name } = validationResult.data;
+
+    // Register user
+    const authResponse = await AuthService.register({ email, password, name });
+
+    res.status(201).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "User registered successfully",
+        data: authResponse,
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const loginController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Validate request body
+    const validationResult = loginSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      throw new PockityErrorInvalidInput({
+        message: "Invalid input data",
+        details: validationResult.error.errors,
+        httpStatusCode: 400,
+      });
+    }
+
+    const { email, password } = validationResult.data;
+
+    // Login user
+    const authResponse = await AuthService.login({ email, password });
+
+    res.status(200).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "Login successful",
+        data: authResponse,
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};

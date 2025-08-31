@@ -14,6 +14,7 @@ const envSchema = z.object({
     .transform((x) => x === "true")
     .default("false"),
   ENCRYPTION_KEY: z.string().min(32).max(64).default(""),
+  JWT_SECRET: z.string().min(32).default("your-super-secret-jwt-key-change-in-production"),
 });
 
 // Parse and validate environment variables

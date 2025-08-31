@@ -3,6 +3,7 @@ import cors from "cors";
 
 import { errorHandler } from "./utils/response/errorHandler";
 import { OpenRouter } from "./routes/openRoutes";
+import { AuthRouter } from "./routes/authRoutes";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(
 app.use(express.json());
 
 app.use("/api/open", OpenRouter);
+app.use("/api/auth", AuthRouter);
 
 app.use(errorHandler);
 

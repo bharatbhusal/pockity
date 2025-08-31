@@ -19,6 +19,8 @@
   "author": "bharatbhusal78@gmail.com",
   "dependencies": {
     "@prisma/client": "6.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
