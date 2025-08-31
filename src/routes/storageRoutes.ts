@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { 
+import {
   uploadFileController,
   deleteFileController,
   getFileController,
@@ -8,7 +8,7 @@ import {
   getFileMetadataController,
   bulkDeleteFilesController,
   getStorageAnalyticsController,
-  uploadMiddleware
+  uploadMiddleware,
 } from "../controllers/storageControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
 

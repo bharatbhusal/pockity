@@ -10,6 +10,7 @@ import {
   PockityErrorNotFound,
   PockityErrorBadRequest,
 } from "../utils/response/PockityErrorClasses";
+import { formatFileSize, getFileCategory } from "@/utils/storageHelpher";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -387,15 +388,15 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
       try {
         // Get file info first
         const fileInfo = await S3Service.getFileInfo(userId, fileName);
-        
+
         // Delete from S3
         await S3Service.deleteFile(userId, fileName);
-        
+
         // Update usage statistics
         await UsageService.decrementUsage(userId, fileInfo.size, fileName);
-        
+
         totalSizeDeleted += fileInfo.size;
-        
+
         results.push({
           fileName,
           success: true,
@@ -410,7 +411,7 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r) => r.success).length;
     const failCount = results.length - successCount;
 
     res.status(200).json(
@@ -457,13 +458,13 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
     let totalSize = 0;
 
     for (const file of files) {
-      const extension = file.key.split('.').pop()?.toLowerCase() || 'unknown';
+      const extension = file.key.split(".").pop()?.toLowerCase() || "unknown";
       const category = getFileCategory(extension);
-      
+
       if (!fileTypeAnalysis[category]) {
         fileTypeAnalysis[category] = { count: 0, totalSize: 0 };
       }
-      
+
       fileTypeAnalysis[category].count++;
       fileTypeAnalysis[category].totalSize += file.size;
       totalSize += file.size;
@@ -493,12 +494,12 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
           recentFiles: files
             .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime())
             .slice(0, 10)
-            .map(file => ({
+            .map((file) => ({
               fileName: file.key,
               size: file.size,
               sizeFormatted: formatFileSize(file.size),
               lastModified: file.lastModified,
-              category: getFileCategory(file.key.split('.').pop()?.toLowerCase() || 'unknown'),
+              category: getFileCategory(file.key.split(".").pop()?.toLowerCase() || "unknown"),
             })),
         },
       }),
@@ -507,45 +508,3 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
     next(error);
   }
 };
-
-// Helper functions
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function getFileCategory(extension: string): string {
-  const categories: Record<string, string> = {
-    // Images
-    'jpg': 'Images', 'jpeg': 'Images', 'png': 'Images', 'gif': 'Images', 'bmp': 'Images', 
-    'svg': 'Images', 'webp': 'Images', 'tiff': 'Images', 'ico': 'Images',
-    
-    // Videos
-    'mp4': 'Videos', 'avi': 'Videos', 'mov': 'Videos', 'wmv': 'Videos', 'flv': 'Videos',
-    'webm': 'Videos', 'mkv': 'Videos', '3gp': 'Videos',
-    
-    // Audio
-    'mp3': 'Audio', 'wav': 'Audio', 'flac': 'Audio', 'aac': 'Audio', 'ogg': 'Audio',
-    'wma': 'Audio', 'm4a': 'Audio',
-    
-    // Documents
-    'pdf': 'Documents', 'doc': 'Documents', 'docx': 'Documents', 'xls': 'Documents',
-    'xlsx': 'Documents', 'ppt': 'Documents', 'pptx': 'Documents', 'txt': 'Documents',
-    'rtf': 'Documents', 'odt': 'Documents',
-    
-    // Archives
-    'zip': 'Archives', 'rar': 'Archives', '7z': 'Archives', 'tar': 'Archives',
-    'gz': 'Archives', 'bz2': 'Archives',
-    
-    // Code
-    'js': 'Code', 'ts': 'Code', 'html': 'Code', 'css': 'Code', 'py': 'Code',
-    'java': 'Code', 'cpp': 'Code', 'c': 'Code', 'php': 'Code', 'rb': 'Code',
-  };
-  
-  return categories[extension] || 'Other';
-}

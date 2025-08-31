@@ -1,7 +1,4 @@
 import { UsageCurrentRepository } from "../repositories/usageCurrentRepository";
-import { UsageSnapshotRepository } from "../repositories/usageSnapshotRepository";
-import { SubscriptionRepository } from "../repositories/subscriptionRepository";
-import { TierRepository } from "../repositories/tierRepository";
 import { AuditLogRepository } from "../repositories/auditLogRepository";
 
 export interface UsageStats {
@@ -23,7 +20,7 @@ export const UsageService = {
    */
   async getCurrentUsage(userId: string): Promise<UsageStats> {
     let usage = await UsageCurrentRepository.findByUserId(userId);
-    
+
     if (!usage) {
       // Initialize usage if not exists
       usage = await UsageCurrentRepository.create({
@@ -47,18 +44,10 @@ export const UsageService = {
   async checkQuotaLimits(userId: string, fileSizeBytes: number): Promise<QuotaLimits> {
     // Get current usage
     const currentUsage = await this.getCurrentUsage(userId);
-    
-    // Get user's subscription and tier limits
-    const subscription = await SubscriptionRepository.findActiveByUserId(userId);
-    
+
     // Default to a basic free tier if no subscription
     let maxBytes = BigInt(1024 * 1024 * 1024); // 1GB default
     let maxObjects = 1000; // 1000 objects default
-    
-    if (subscription?.tier) {
-      maxBytes = BigInt(subscription.tier.monthlyQuotaGB * 1024 * 1024 * 1024);
-      maxObjects = subscription.tier.maxObjects;
-    }
 
     const newBytesUsed = currentUsage.bytesUsed + BigInt(fileSizeBytes);
     const newObjectCount = currentUsage.objects + 1;
@@ -107,7 +96,7 @@ export const UsageService = {
    */
   async decrementUsage(userId: string, fileSizeBytes: number, fileName: string): Promise<void> {
     const currentUsage = await this.getCurrentUsage(userId);
-    
+
     // Ensure we don't go below zero
     const newBytesUsed = currentUsage.bytesUsed - BigInt(fileSizeBytes);
     const newObjectCount = Math.max(0, currentUsage.objects - 1);
@@ -132,20 +121,6 @@ export const UsageService = {
   },
 
   /**
-   * Create a usage snapshot for historical tracking
-   */
-  async createSnapshot(userId: string, asOf?: Date): Promise<void> {
-    const currentUsage = await this.getCurrentUsage(userId);
-    
-    await UsageSnapshotRepository.create({
-      userId,
-      bytesUsed: currentUsage.bytesUsed,
-      objects: currentUsage.objects,
-      asOf: asOf || new Date(),
-    });
-  },
-
-  /**
    * Get usage statistics with quota information
    */
   async getUsageWithQuota(userId: string): Promise<{
@@ -159,7 +134,7 @@ export const UsageService = {
     const usage = await this.getCurrentUsage(userId);
     const quota = await this.checkQuotaLimits(userId, 0); // Check without adding any file
 
-    const bytesPercentage = Number(usage.bytesUsed) / Number(quota.maxBytes) * 100;
+    const bytesPercentage = (Number(usage.bytesUsed) / Number(quota.maxBytes)) * 100;
     const objectsPercentage = (usage.objects / quota.maxObjects) * 100;
 
     return {

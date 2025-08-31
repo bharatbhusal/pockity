@@ -1,12 +1,8 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/userRepository";
-import { env } from "../config/env";
-import { JwtPayload } from "../middleware/jwtAuth";
-import {
-  PockityErrorBadRequest,
-  PockityErrorAuthentication,
-} from "../utils/response/PockityErrorClasses";
+import { PockityErrorBadRequest, PockityErrorAuthentication } from "../utils/response/PockityErrorClasses";
+import { generateToken } from "@/utils/token";
+import { compareHashedData, hashData } from "@/utils/hash";
 
 export interface RegisterUserData {
   email: string;
@@ -43,8 +39,7 @@ export const AuthService = {
     }
 
     // Hash password
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    const passwordHash = await hashData(password);
 
     // Create user
     const user = await UserRepository.create({
@@ -56,7 +51,7 @@ export const AuthService = {
     });
 
     // Generate JWT token
-    const token = await AuthService.generateToken({
+    const token = await generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -85,16 +80,8 @@ export const AuthService = {
       });
     }
 
-    // Check if user has a password (for users registered via OAuth, passwordHash might be null)
-    if (!user.passwordHash) {
-      throw new PockityErrorAuthentication({
-        message: "Please login using your OAuth provider",
-        httpStatusCode: 401,
-      });
-    }
-
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    const isPasswordValid = await compareHashedData(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new PockityErrorAuthentication({
         message: "Invalid email or password",
@@ -103,7 +90,7 @@ export const AuthService = {
     }
 
     // Generate JWT token
-    const token = await AuthService.generateToken({
+    const token = await generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -118,37 +105,5 @@ export const AuthService = {
       },
       token,
     };
-  },
-
-  async generateToken(payload: JwtPayload): Promise<string> {
-    return jwt.sign(payload, env.JWT_SECRET, {
-      expiresIn: "24h", // Token expires in 24 hours
-      issuer: "pockity",
-      audience: "pockity-users",
-    });
-  },
-
-  async verifyToken(token: string): Promise<JwtPayload> {
-    try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-      return decoded;
-    } catch (error: any) {
-      if (error.name === "TokenExpiredError") {
-        throw new PockityErrorAuthentication({
-          message: "Authentication token has expired",
-          httpStatusCode: 401,
-        });
-      } else if (error.name === "JsonWebTokenError") {
-        throw new PockityErrorAuthentication({
-          message: "Invalid authentication token",
-          httpStatusCode: 401,
-        });
-      } else {
-        throw new PockityErrorAuthentication({
-          message: "Authentication failed",
-          httpStatusCode: 401,
-        });
-      }
-    }
   },
 };

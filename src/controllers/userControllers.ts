@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { UserRepository } from "../repositories/userRepository";
 import { UsageService } from "../services/usageService";
-import { BillingService } from "../services/billingService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
   PockityErrorInvalidInput,
@@ -36,7 +35,6 @@ export const getUserProfileController = async (req: Request, res: Response, next
 
     // Get usage and billing information
     const usageData = await UsageService.getUsageWithQuota(userId);
-    const subscription = await BillingService.getUserSubscription(userId);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -59,12 +57,6 @@ export const getUserProfileController = async (req: Request, res: Response, next
             quotaObjects: usageData.quota.maxObjects,
             usagePercentage: usageData.usagePercentage,
           },
-          subscription: subscription ? {
-            id: subscription.id,
-            planId: subscription.planId,
-            status: subscription.status,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-          } : null,
         },
       }),
     );
@@ -169,7 +161,7 @@ export const changePasswordController = async (req: Request, res: Response, next
 
     // Verify current password
     const bcrypt = require("bcrypt");
-    if (!user.passwordHash || !await bcrypt.compare(currentPassword, user.passwordHash)) {
+    if (!user.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
       throw new PockityErrorBadRequest({
         message: "Current password is incorrect",
         httpStatusCode: 400,
@@ -212,10 +204,8 @@ export const deleteUserAccountController = async (req: Request, res: Response, n
 
     // TODO: In a real implementation, we should:
     // 1. Delete all user's files from S3
-    // 2. Cancel any active subscriptions
-    // 3. Process any refunds
-    // 4. Delete related data (API keys, usage records, etc.)
-    
+    // 2. Delete related data (API keys, usage records, etc.)
+
     // For now, we'll just mark the account as deleted by setting a flag
     // In a real system, you might want to anonymize data instead of hard delete
     await UserRepository.update(userId, {
@@ -251,7 +241,6 @@ export const getAccountSummaryController = async (req: Request, res: Response, n
 
     // Get comprehensive account information
     const usageData = await UsageService.getUsageWithQuota(userId);
-    const billingSummary = await BillingService.getBillingSummary(userId);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -277,13 +266,6 @@ export const getAccountSummaryController = async (req: Request, res: Response, n
               maxObjects: usageData.quota.maxObjects,
             },
             percentage: usageData.usagePercentage,
-          },
-          billing: {
-            subscription: billingSummary.subscription,
-            nextInvoiceAmount: billingSummary.nextInvoiceAmount,
-            nextInvoiceDate: billingSummary.nextInvoiceDate,
-            paymentMethodsCount: billingSummary.paymentMethodsCount,
-            creditsBalance: billingSummary.creditsBalance,
           },
         },
       }),
