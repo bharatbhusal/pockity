@@ -15,6 +15,11 @@ const envSchema = z.object({
     .default("false"),
   ENCRYPTION_KEY: z.string().min(32).max(64).default(""),
   JWT_SECRET: z.string().min(32).default("your-super-secret-jwt-key-change-in-production"),
+  // AWS S3 Configuration
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
+  AWS_REGION: z.string().default("us-east-1"),
 });
 
 // Parse and validate environment variables

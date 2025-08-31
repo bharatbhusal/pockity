@@ -54,3 +54,15 @@ export class PockityErrorInvalidInput extends PockityBaseErrorClass {
     super({ message, details, httpStatusCode });
   }
 }
+
+export class PockityErrorNotFound extends PockityBaseErrorClass {
+  constructor({ message, httpStatusCode }: { message: string; httpStatusCode: number }) {
+    super({ message, httpStatusCode });
+  }
+}
+
+export class PockityErrorUnauthorized extends PockityBaseErrorClass {
+  constructor({ message, httpStatusCode }: { message: string; httpStatusCode: number }) {
+    super({ message, httpStatusCode });
+  }
+}
