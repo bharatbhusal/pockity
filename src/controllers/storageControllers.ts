@@ -42,7 +42,8 @@ const bulkDeleteSchema = z.object({
 // Upload file endpoint
 export const uploadFileController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
+    const userId = req.userId!; // From JWT or API key middleware
+    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
 
     if (!req.file) {
       throw new PockityErrorInvalidInput({
@@ -76,12 +77,13 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
       });
     }
 
-    // Upload to S3
+    // Upload to S3 with appropriate prefix (API key or user-based)
     const result = await S3Service.uploadFile({
       userId,
       fileName: originalname,
       fileBuffer: buffer,
       contentType: mimetype,
+      accessKeyId,
     });
 
     // Update user's usage statistics in the database
@@ -119,7 +121,8 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
+    const userId = req.userId!; // From JWT or API key middleware
+    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -132,10 +135,10 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
 
     try {
       // Get file info first to check if it exists and get size
-      const fileInfo = await S3Service.getFileInfo(userId, fileName);
+      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
 
       // Delete from S3
-      await S3Service.deleteFile(userId, fileName);
+      await S3Service.deleteFile(userId, fileName, accessKeyId);
 
       // Update user's usage statistics in the database
       await UsageService.decrementUsage(userId, fileInfo.size, fileName);
@@ -177,7 +180,8 @@ export const getFileController = async (req: Request, res: Response, next: NextF
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
+    const userId = req.userId!; // From JWT or API key middleware
+    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -190,8 +194,9 @@ export const getFileController = async (req: Request, res: Response, next: NextF
 
     try {
       // Get file info and generate presigned URL
-      const fileInfo = await S3Service.getFileInfo(userId, fileName);
-      const url = await S3Service.getSignedUrl(`users/${userId}/${fileName}`);
+      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
+      const prefix = S3Service.getStoragePrefix(userId, accessKeyId);
+      const url = await S3Service.getSignedUrl(`${prefix}${fileName}`);
 
       res.status(200).json(
         new PockityBaseResponse({
@@ -223,7 +228,8 @@ export const getFileController = async (req: Request, res: Response, next: NextF
 // List all files for the user
 export const listFilesController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.userId!; // From JWT middleware
+    const userId = req.userId!; // From JWT or API key middleware
+    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -234,8 +240,8 @@ export const listFilesController = async (req: Request, res: Response, next: Nex
       });
     }
 
-    // Get all files for the user
-    const files = await S3Service.listUserFiles(userId);
+    // Get all files for the user or API key
+    const files = await S3Service.listUserFiles(userId, accessKeyId);
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -310,7 +316,8 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
     }
 
     const { fileName } = validationResult.data;
-    const userId = req.userId!; // From JWT middleware
+    const userId = req.userId!; // From JWT or API key middleware
+    const accessKeyId = req.accessKeyId; // From API key middleware (if available)
 
     // Verify user exists
     const user = await UserRepository.findById(userId);
@@ -323,8 +330,9 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
 
     try {
       // Get detailed file metadata
-      const fileInfo = await S3Service.getFileInfo(userId, fileName);
-      const presignedUrl = await S3Service.getSignedUrl(`users/${userId}/${fileName}`);
+      const fileInfo = await S3Service.getFileInfo(userId, fileName, accessKeyId);
+      const prefix = S3Service.getStoragePrefix(userId, accessKeyId);
+      const presignedUrl = await S3Service.getSignedUrl(`${prefix}${fileName}`);
 
       res.status(200).json(
         new PockityBaseResponse({
@@ -332,7 +340,7 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
           message: "File metadata retrieved successfully",
           data: {
             fileName,
-            key: `users/${userId}/${fileName}`,
+            key: `${prefix}${fileName}`,
             size: fileInfo.size,
             sizeFormatted: formatFileSize(fileInfo.size),
             lastModified: fileInfo.lastModified,

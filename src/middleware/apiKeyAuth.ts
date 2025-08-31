@@ -47,8 +47,9 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
       lastUsedAt: new Date(),
     });
 
-    // Add user information to request object
+    // Add user information and API key information to request object
     req.userId = apiKey.userId;
+    req.accessKeyId = apiKey.accessKeyId;
 
     next();
   } catch (error) {

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 import { UserRepository } from "../repositories/userRepository";
+import { S3Service } from "../services/s3Service";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
   PockityErrorInvalidInput,
@@ -59,6 +60,14 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
       name,
       userId,
     });
+
+    // Create the corresponding S3 folder for this API key
+    try {
+      await S3Service.createApiKeyFolder(accessKeyId);
+    } catch (error) {
+      // Log the error but don't fail the API key creation
+      console.error(`Failed to create S3 folder for API key ${accessKeyId}:`, error);
+    }
 
     res.status(201).json(
       new PockityBaseResponse({
