@@ -10,11 +10,11 @@ import {
   PockityErrorNotFound,
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
+import { hashData } from "@/utils/hash";
 
 // Validation schemas
 const createApiKeySchema = z.object({
   name: z.string().min(1, "API key name is required").max(255, "Name too long"),
-  tierId: z.string().optional(),
 });
 
 const revokeApiKeySchema = z.object({
@@ -33,7 +33,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
       });
     }
 
-    const { name, tierId } = validationResult.data;
+    const { name } = validationResult.data;
     const userId = req.userId!; // From JWT middleware
 
     // Verify user exists
@@ -50,7 +50,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
 
     // Hash the secret key before storing
-    const secretHash = await bcrypt.hash(secretKey, 12);
+    const secretHash = await hashData(secretKey);
 
     // Create API key in database
     const apiKey = await ApiKeyRepository.create({
@@ -58,7 +58,6 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
       secretHash,
       name,
       userId,
-      tierId: tierId || null,
     });
 
     res.status(201).json(
@@ -70,7 +69,6 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
           accessKeyId: apiKey.accessKeyId,
           secretKey, // Only shown once during creation
           name: apiKey.name,
-          tierId: apiKey.tierId,
           isActive: apiKey.isActive,
           createdAt: apiKey.createdAt,
         },
@@ -93,7 +91,6 @@ export const listApiKeysController = async (req: Request, res: Response, next: N
       id: key.id,
       accessKeyId: key.accessKeyId,
       name: key.name,
-      tierId: key.tierId,
       isActive: key.isActive,
       createdAt: key.createdAt,
       lastUsedAt: key.lastUsedAt,
@@ -199,7 +196,6 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
           id: apiKey.id,
           accessKeyId: apiKey.accessKeyId,
           name: apiKey.name,
-          tierId: apiKey.tierId,
           isActive: apiKey.isActive,
           createdAt: apiKey.createdAt,
           lastUsedAt: apiKey.lastUsedAt,

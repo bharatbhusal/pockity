@@ -1,14 +1,24 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, HeadObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
 
 // Initialize S3 client
 const s3Client = new S3Client({
   region: env.AWS_REGION,
-  credentials: env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY ? {
-    accessKeyId: env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-  } : undefined,
+  credentials:
+    env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
+      ? {
+          accessKeyId: env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+        }
+      : undefined,
 });
 
 export interface UploadFileParams {
@@ -31,7 +41,7 @@ export const S3Service = {
    */
   async uploadFile(params: UploadFileParams): Promise<{ key: string; url: string }> {
     const { userId, fileName, fileBuffer, contentType } = params;
-    
+
     if (!env.S3_BUCKET) {
       throw new Error("S3_BUCKET environment variable is not configured");
     }
@@ -115,7 +125,7 @@ export const S3Service = {
       if (object.Key && object.Size !== undefined && object.LastModified) {
         // Generate presigned URL for each file
         const url = await this.getSignedUrl(object.Key);
-        
+
         objects.push({
           key: object.Key.replace(prefix, ""), // Remove prefix to show just filename
           size: object.Size,
@@ -131,7 +141,10 @@ export const S3Service = {
   /**
    * Get file metadata
    */
-  async getFileInfo(userId: string, fileName: string): Promise<{ size: number; lastModified: Date; contentType?: string }> {
+  async getFileInfo(
+    userId: string,
+    fileName: string,
+  ): Promise<{ size: number; lastModified: Date; contentType?: string }> {
     if (!env.S3_BUCKET) {
       throw new Error("S3_BUCKET environment variable is not configured");
     }
@@ -157,7 +170,7 @@ export const S3Service = {
    */
   async getUserStorageUsage(userId: string): Promise<{ totalBytes: number; objectCount: number }> {
     const files = await this.listUserFiles(userId);
-    
+
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     const objectCount = files.length;
 
