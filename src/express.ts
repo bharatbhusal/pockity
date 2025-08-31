@@ -11,6 +11,7 @@ import { TierRouter } from "./routes/tierRoutes";
 import { BillingRouter } from "./routes/billingRoutes";
 import { PaymentRouter } from "./routes/paymentRoutes";
 import { CreditRouter } from "./routes/creditRoutes";
+import { UserRouter } from "./routes/userRoutes";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/tiers", TierRouter);
 app.use("/api/billing", BillingRouter);
 app.use("/api/payments", PaymentRouter);
 app.use("/api/credits", CreditRouter);
+app.use("/api/users", UserRouter);
 
 app.use(errorHandler);
 
