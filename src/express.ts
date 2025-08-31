@@ -7,6 +7,7 @@ import { AuthRouter } from "./routes/authRoutes";
 import { ApiKeyRouter } from "./routes/apiKeyRoutes";
 import { TierRequestRouter } from "./routes/tierRequestRoutes";
 import { StorageRouter } from "./routes/storageRoutes";
+import { ApiKeyStorageRouter } from "./routes/apiKeyStorageRoutes";
 import { TierRouter } from "./routes/tierRoutes";
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/auth", AuthRouter);
 app.use("/api/apikeys", ApiKeyRouter);
 app.use("/api/tier-requests", TierRequestRouter);
 app.use("/api/storage", StorageRouter);
+app.use("/api/v1/storage", ApiKeyStorageRouter); // API key authenticated storage
 app.use("/api/tiers", TierRouter);
 
 app.use(errorHandler);
