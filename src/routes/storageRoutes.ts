@@ -11,11 +11,12 @@ import {
   uploadMiddleware,
 } from "../controllers/storageControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
+import { apiKeyAuth } from "@/middleware/apiKeyAuth";
 
 const router = Router();
 
 // All storage routes require authentication
-router.use(jwtAuth);
+router.use(apiKeyAuth);
 
 // POST /storage/upload - Upload a file
 router.post("/upload", uploadMiddleware, uploadFileController);
