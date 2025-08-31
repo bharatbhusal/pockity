@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TierRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+  EXPIRED
+  PENDING
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  VOID
+}
+
+enum PaymentProvider {
+  STRIPE
+  RAZORPAY
+  COINBASE_COMMERCE
+  CUSTOM_CRYPTO_GATEWAY
+  MANUAL
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  BANK_TRANSFER
+  ETH
+  ERC20_USDC
+  BTC
+  SOL
+  OTHER
+}
+
+//  MODELS
+
+//  Users: email/password or external providers.
+//  - passwordHash: for traditional auth
+//  - emailVerified: boolean
+//  - provider fields handled via ProviderAccount
+//  - role to allow admin operations (approvals)
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  passwordHash       String?
+  emailVerified      Boolean  @default(false)
+  verificationToken  String?
+  resetPasswordToken String?
+  role               Role     @default(USER)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  providerAccounts ProviderAccount[]
+  apiKeys          ApiKey[]
+  usageSnapshots   UsageSnapshot[]
+  currentUsage     UsageCurrent?
+  subscriptions    Subscription[]
+  invoices         Invoice[]
+  transactions     PaymentTransaction[]
+  credits          Credit[]
+  auditLogs        AuditLog[]
+
+  // relation for requests created by this user
+  tierRequests TierRequest[] @relation("TierRequestUser")
+
+  // relation for requests where this user acted as admin
+  approvedRequests TierRequest[] @relation("TierRequestAdmin")
+}
+
+//  TierRequest: user requests a tier change or upgrade. Admin approves/rejects.
+//  - status: PENDING / APPROVED / REJECTED
+//  - adminId: who approved (nullable until resolved)
+//  - requestedAt, resolvedAt for audit
+
+model TierRequest {
+  id         String            @id @default(cuid())
+  userId     String
+  tierId     String
+  tier       Tier              @relation(fields: [tierId], references: [id])
+  reason     String?
+  status     TierRequestStatus @default(PENDING)
+  adminId    String?
+  createdAt  DateTime          @default(now())
+  resolvedAt DateTime?
+  user       User              @relation("TierRequestUser", fields: [userId], references: [id])
+  admin      User?             @relation("TierRequestAdmin", fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([tierId])
+}
+
+//  ProviderAccount: OAuth / external provider link (Google, Github, etc.)
+//  - provider: e.g., "google"
+//  - providerAccountId: unique id from provider
+model ProviderAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+//  Tier: plan definitions
+//  - monthlyQuotaGB: quota in GB (for human readability)
+//  - maxObjects: number of objects allowed
+//  - priceCents: monthly price in cents (base currency defined elsewhere)
+model Tier {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  monthlyQuotaGB Float
+  maxObjects     Int
+  description    String?
+  priceCents     Int // price per billing cycle in cents
+  isPublic       Boolean  @default(true) // visible to signups
+  trialDays      Int? // optional trial period
+  createdAt      DateTime @default(now())
+
+  // Relations
+  apiKeys       ApiKey[]
+  tierRequests  TierRequest[]
+  subscriptions Subscription[]
+}
+
+//  ApiKey: many keys per user.
+//  - Each key can be assigned a tier independently.
+//  - secretHash stored (hash of secret). Show secret only when created.
+// - metadata JSON for custom policies/scopes
+model ApiKey {
+  id          String    @id @default(cuid())
+  accessKeyId String    @unique
+  secretHash  String
+  name        String?
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  tierId      String? // optional: if not present, key uses user's default subscription tier
+  tier        Tier?     @relation(fields: [tierId], references: [id])
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  metadata    Json?
+
+  @@index([userId])
+}
+
+//  Subscription: subscription lifecycle for a user.
+//  - provider: 'stripe' or 'crypto'
+//  - providerId: provider subscription id or external identifier
+//  - customerId: provider customer id or wallet address (for crypto)
+//  - status: ACTIVE, PAST_DUE, CANCELLED, TRIALING, EXPIRED
+//  - currentPeriodStart/End manage expiry
+//  - unique userId per subscription (one active subscription per user assumed).
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id])
+  tierId             String
+  tier               Tier               @relation(fields: [tierId], references: [id])
+  status             SubscriptionStatus @default(PENDING)
+  provider           PaymentProvider
+  providerId         String? // e.g., stripe subscription id OR identifier
+  customerId         String? // stripe customer id OR wallet address for crypto
+  paymentMethod      PaymentMethod?
+  startedAt          DateTime           @default(now())
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  canceledAt         DateTime?
+  trialEndsAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  invoices Invoice[]
+
+  @@unique([userId]) // one subscription per user (enforce if desired); remove if multi-sub allowed
+  @@index([tierId])
+}
+
+//  Invoice: records each billable event (fiat or crypto)
+//  - provider: stripe / crypto / manual
+//  - providerId: payment id / tx hash
+//  - wallet: optional wallet address for crypto payments
+//  - amountCents: integer, base currency cents
+model Invoice {
+  id                 String               @id @default(cuid())
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id])
+  subscriptionId     String? // optional link to subscription
+  subscription       Subscription?        @relation(fields: [subscriptionId], references: [id])
+  amountCents        Int
+  currency           String               @default("usd")
+  status             InvoiceStatus        @default(PENDING)
+  provider           PaymentProvider
+  providerId         String? // e.g., stripe invoice id or tx hash
+  wallet             String? // for crypto payments (payer address)
+  description        String?
+  dueAt              DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime             @default(now())
+  PaymentTransaction PaymentTransaction[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+//  PaymentTransaction: low-level record for payment attempts and confirmations.
+//  - For crypto: txHash, confirmations, blockNumber, chain
+//  - For fiat: providerResponse JSON
+//  - Used for reconciliation and webhooks
+model PaymentTransaction {
+  id                String          @id @default(cuid())
+  invoiceId         String?
+  invoice           Invoice?        @relation(fields: [invoiceId], references: [id])
+  userId            String?
+  user              User?           @relation(fields: [userId], references: [id])
+  provider          PaymentProvider
+  method            PaymentMethod
+  providerPaymentId String? // provider-specific payment identifier
+  amountCents       Int
+  currency          String          @default("usd")
+  status            InvoiceStatus // reuse statuses for simplicity
+  wallet            String? // crypto wallet address
+  txHash            String? // blockchain tx hash (for crypto)
+  chain             String? // "ethereum", "polygon", "bitcoin"
+  blockNumber       BigInt?
+  confirmations     Int?
+  providerResponse  Json? // raw provider response or webhook payload
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([txHash])
+}
+
+//  Credit: user wallet / prepaid balance.
+//  - For crypto deposits or prepaid fiat credit system.
+//  - currency field (USD stable coins or fiat).
+//  - useful for pay-as-you-go usage billing.
+model Credit {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amountCents Int // stored in cents for fiat-equivalent
+  currency    String   @default("usd") // or token symbol like "USDC"
+  source      String? // e.g., 'crypto-deposit', 'manual-topup'
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+//  UsageCurrent: a single row per user for current usage (fast increment/decrement)
+//  - bytesUsed: BigInt
+//  - objects: Int
+//  - lastUpdated: timestamp of last change
+//  - This acts as a fast counter. Snapshots (UsageSnapshot) provide history.
+model UsageCurrent {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  bytesUsed   BigInt   @default(0)
+  objects     Int      @default(0)
+  lastUpdated DateTime @default(now())
+}
+
+//  UsageSnapshot: historical snapshots (daily/monthly) for analytics and billing
+//  - asOf lets you store the snapshot timestamp (e.g., start of day/month)
+model UsageSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  bytesUsed BigInt   @default(0)
+  objects   Int      @default(0)
+  asOf      DateTime @default(now()) // snapshot timestamp (e.g., start of day/month)
+}
+
+//  AuditLog: immutable logs for important actions (apikey create/revoke, tier requests, payments)
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  actorId   String? // admin or system actor id (nullable)
+  action    String // short action key, e.g., 'APIKEY_CREATE', 'TIER_APPROVE'
+  detail    String? // human readable detail
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
