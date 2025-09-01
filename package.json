@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npm run build && node dist/main.js",
+    "start": "node dist/main.js",
     "dev": "ts-node-dev --respawn -r tsconfig-paths/register src/main.ts",
     "build": "rm -rf dist && tsc && [ -f .env ] && cp .env dist/.env || echo '.env file not found, skipping copy'",
     "format": "prettier --config ./prettier.config.mjs --write './**/*.{ts,tsx,json}'",
