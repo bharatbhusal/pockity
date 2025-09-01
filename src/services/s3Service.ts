@@ -33,6 +33,7 @@ export interface S3Object {
   sizeInBytes: number;
   lastModified: Date;
   url?: string;
+  contentType?: string;
 }
 
 export const S3Service = {
@@ -55,7 +56,8 @@ export const S3Service = {
     await s3Client.send(command);
 
     // Generate a presigned URL for access
-    const url = await this.getSignedUrl(key);
+    // const url = await this.getSignedUrl(key);
+    const url = await this.getPermanentUrl(key);
 
     return { key, url };
   },
@@ -85,6 +87,13 @@ export const S3Service = {
   },
 
   /**
+   * Get a permanent URL for a file
+   */
+  async getPermanentUrl(key: string): Promise<string> {
+    return `https://${env.S3_BUCKET}.s3.amazonaws.com/${key}`;
+  },
+
+  /**
    * List all files for a user or API key
    */
   async listUserFiles(apiAccessKeyId: string): Promise<S3Object[]> {
@@ -99,21 +108,25 @@ export const S3Service = {
       return [];
     }
 
-    const objects: S3Object[] = [];
+    // Use Promise.all to fetch file info and URLs in parallel
+    const objects: S3Object[] = await Promise.all(
+      response.Contents.filter((object) => object.Key && object.Size !== undefined && object.LastModified).map(
+        async (object) => {
+          // Generate presigned URL for each file
+          const url = await this.getPermanentUrl(object.Key!);
 
-    for (const object of response.Contents) {
-      if (object.Key && object.Size !== undefined && object.LastModified) {
-        // Generate presigned URL for each file
-        const url = await this.getSignedUrl(object.Key);
+          const { contentType } = await S3Service.getFileInfo(object.Key!);
 
-        objects.push({
-          key: object.Key,
-          sizeInBytes: object.Size,
-          lastModified: object.LastModified,
-          url,
-        });
-      }
-    }
+          return {
+            key: object.Key!,
+            sizeInBytes: object.Size!,
+            lastModified: object.LastModified!,
+            url,
+            contentType,
+          };
+        },
+      ),
+    );
 
     return objects;
   },

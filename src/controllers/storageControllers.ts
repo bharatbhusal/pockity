@@ -11,6 +11,7 @@ import {
   PockityErrorBadRequest,
 } from "../utils/response/PockityErrorClasses";
 import { formatFileSize, getFileCategory } from "../utils/storageHelpher";
+import path from "path";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -27,12 +28,6 @@ const deleteFileSchema = z.object({
 
 const getFileSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
-});
-
-const updateFileMetadataSchema = z.object({
-  key: z.string().min(1, "File key is required"),
-  contentType: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
 });
 
 const bulkDeleteSchema = z.object({
@@ -52,7 +47,6 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { originalname, buffer, mimetype } = req.file;
-
     // Check user's quota limits here
     const quotaCheck = await UsageService.checkQuotaLimits(apiAccessKeyId, buffer.length);
     if (!quotaCheck.canUpload) {
@@ -122,15 +116,13 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
       await S3Service.deleteFile(key);
 
       // Update user's usage statistics in the database
-      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, key);
+      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
 
       res.status(200).json(
         new PockityBaseResponse({
           success: true,
           message: "File deleted successfully",
-          data: {
-            fileName: key,
-          },
+          data: { key },
         }),
       );
     } catch (error: any) {
@@ -168,14 +160,14 @@ export const getFileController = async (req: Request, res: Response, next: NextF
       // Get file info and generate presigned URL
 
       const fileInfo = await S3Service.getFileInfo(key);
-      const url = await S3Service.getSignedUrl(key);
+      const url = await S3Service.getPermanentUrl(key);
 
       res.status(200).json(
         new PockityBaseResponse({
           success: true,
           message: "File URL generated successfully",
           data: {
-            fileName: key,
+            key,
             url,
             size: fileInfo.size,
             lastModified: fileInfo.lastModified,
@@ -213,7 +205,7 @@ export const listFilesController = async (req: Request, res: Response, next: Nex
           files,
           totalFiles: files.length,
           totalSizeGB:
-            Math.round((files.reduce((sum, file) => sum + file.sizeInBytes, 0) / (1024 * 1024 * 1024)) * 100) / 100,
+            Math.round((files.reduce((sum, file) => sum + file.sizeInBytes, 0) / (1024 * 1024 * 1024)) * 10000) / 10000,
         },
       }),
     );
@@ -236,12 +228,12 @@ export const getStorageUsageController = async (req: Request, res: Response, nex
         message: "Storage usage retrieved successfully",
         data: {
           totalBytes: usageData.usage.bytesUsed.toString(),
-          totalSizeGB: Math.round((Number(usageData.usage.bytesUsed) / (1024 * 1024 * 1024)) * 100) / 100,
+          totalSizeGB: Math.round((Number(usageData.usage.bytesUsed) / (1024 * 1024 * 1024)) * 10000) / 10000,
           objectCount: usageData.usage.objects,
           lastUpdated: usageData.usage.lastUpdated,
           quota: {
             maxBytes: usageData.quota.maxBytes.toString(),
-            maxSizeGB: Math.round((Number(usageData.quota.maxBytes) / (1024 * 1024 * 1024)) * 100) / 100,
+            maxSizeGB: Math.round((Number(usageData.quota.maxBytes) / (1024 * 1024 * 1024)) * 10000) / 10000,
             maxObjects: usageData.quota.maxObjects,
           },
           usagePercentage: usageData.usagePercentage,
@@ -394,8 +386,7 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
     let totalSize = 0;
 
     for (const file of files) {
-      const extension = file.key.split(".").pop()?.toLowerCase() || "unknown";
-      const category = getFileCategory(extension);
+      const category = file.contentType?.split("/")[0] || "Unknown";
 
       if (!fileTypeAnalysis[category]) {
         fileTypeAnalysis[category] = { count: 0, totalSize: 0 };
@@ -435,7 +426,7 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
               size: file.sizeInBytes,
               sizeFormatted: formatFileSize(file.sizeInBytes),
               lastModified: file.lastModified,
-              category: getFileCategory(file.key.split(".").pop()?.toLowerCase() || "unknown"),
+              category: file.contentType?.split("/")[0] || "Unknown",
             })),
         },
       }),
