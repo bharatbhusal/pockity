@@ -94,7 +94,7 @@ export const UsageService = {
   /**
    * Update usage when a file is deleted
    */
-  async decrementUsage(apiAccessKeyId: string, fileSizeBytes: number, fileName: string): Promise<void> {
+  async decrementUsage(apiAccessKeyId: string, fileSizeBytes: number, key: string): Promise<void> {
     const currentUsage = await this.getCurrentUsage(apiAccessKeyId);
 
     // Ensure we don't go below zero
@@ -111,9 +111,9 @@ export const UsageService = {
     await AuditLogRepository.create({
       apiAccessKeyId,
       action: "STORAGE_DELETE",
-      detail: `Deleted file: ${fileName}`,
+      detail: `Deleted file: ${key}`,
       metadata: {
-        fileName,
+        fileName: key,
         fileSizeBytes,
         timestamp: new Date().toISOString(),
       },

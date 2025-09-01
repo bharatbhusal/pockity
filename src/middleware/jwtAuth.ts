@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { PockityErrorAuthentication } from "../utils/response/PockityErrorClasses";
-import { UserRepository } from "@/repositories";
+import { UserRepository } from "../repositories";
 
 export interface JwtPayload {
   userId: string;

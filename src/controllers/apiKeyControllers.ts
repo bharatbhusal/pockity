@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import crypto from "crypto";
-import bcrypt from "bcrypt";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
-import { UserRepository } from "../repositories/userRepository";
 import { S3Service } from "../services/s3Service";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
@@ -11,7 +9,7 @@ import {
   PockityErrorNotFound,
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
-import { hashData } from "@/utils/hash";
+import { hashData } from "../utils/hash";
 
 // Validation schemas
 const createApiKeySchema = z.object({
@@ -54,19 +52,11 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
 
     // Create API key in database
     const apiKey = await ApiKeyRepository.create({
-      apiAccessKeyId,
+      accessKeyId: apiAccessKeyId,
       secretHash,
       name,
       userId: req.user.id,
     });
-
-    // Create the corresponding S3 folder for this API key
-    try {
-      await S3Service.createApiKeyFolder(apiAccessKeyId);
-    } catch (error) {
-      // Log the error but don't fail the API key creation
-      console.error(`Failed to create S3 folder for API key ${apiAccessKeyId}:`, error);
-    }
 
     res.status(201).json(
       new PockityBaseResponse({

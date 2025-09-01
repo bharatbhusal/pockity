@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { 
-  createApiKeyController, 
-  listApiKeysController, 
+import {
+  createApiKeyController,
+  listApiKeysController,
   revokeApiKeyController,
-  getApiKeyController 
+  getApiKeyController,
 } from "../controllers/apiKeyControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
 

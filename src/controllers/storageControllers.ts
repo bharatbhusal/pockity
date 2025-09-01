@@ -10,7 +10,7 @@ import {
   PockityErrorNotFound,
   PockityErrorBadRequest,
 } from "../utils/response/PockityErrorClasses";
-import { formatFileSize, getFileCategory } from "@/utils/storageHelpher";
+import { formatFileSize, getFileCategory } from "../utils/storageHelpher";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -30,7 +30,7 @@ const getFileSchema = z.object({
 });
 
 const updateFileMetadataSchema = z.object({
-  fileName: z.string().min(1, "File name is required"),
+  key: z.string().min(1, "File key is required"),
   contentType: z.string().optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -63,6 +63,7 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
           quotaExceeded: quotaCheck.quotaExceeded,
           maxBytes: quotaCheck.maxBytes.toString(),
           maxObjects: quotaCheck.maxObjects,
+          fileSize: buffer.length,
         },
       });
     }
@@ -111,23 +112,24 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
 
     const { fileName } = validationResult.data;
     const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
+    const key = `${apiAccessKeyId}/${fileName}`;
 
     try {
       // Get file info first to check if it exists and get size
-      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
+      const fileInfo = await S3Service.getFileInfo(key);
 
       // Delete from S3
-      await S3Service.deleteFile(fileName, apiAccessKeyId);
+      await S3Service.deleteFile(key);
 
       // Update user's usage statistics in the database
-      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
+      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, key);
 
       res.status(200).json(
         new PockityBaseResponse({
           success: true,
           message: "File deleted successfully",
           data: {
-            fileName,
+            fileName: key,
           },
         }),
       );
@@ -160,19 +162,20 @@ export const getFileController = async (req: Request, res: Response, next: NextF
 
     const { fileName } = validationResult.data;
     const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
+    const key = `${apiAccessKeyId}/${fileName}`;
 
     try {
       // Get file info and generate presigned URL
-      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
-      const prefix = `${apiAccessKeyId}/`;
-      const url = await S3Service.getSignedUrl(`${prefix}${fileName}`);
+
+      const fileInfo = await S3Service.getFileInfo(key);
+      const url = await S3Service.getSignedUrl(key);
 
       res.status(200).json(
         new PockityBaseResponse({
           success: true,
           message: "File URL generated successfully",
           data: {
-            fileName,
+            fileName: key,
             url,
             size: fileInfo.size,
             lastModified: fileInfo.lastModified,
@@ -209,7 +212,8 @@ export const listFilesController = async (req: Request, res: Response, next: Nex
         data: {
           files,
           totalFiles: files.length,
-          totalSize: files.reduce((sum, file) => sum + file.size, 0),
+          totalSizeGB:
+            Math.round((files.reduce((sum, file) => sum + file.sizeInBytes, 0) / (1024 * 1024 * 1024)) * 100) / 100,
         },
       }),
     );
@@ -267,20 +271,20 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
 
     const { fileName } = validationResult.data;
     const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
+    const key = `${apiAccessKeyId}/${fileName}`;
 
     try {
       // Get detailed file metadata
-      const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
-      const prefix = `${apiAccessKeyId}/`;
-      const presignedUrl = await S3Service.getSignedUrl(`${prefix}${fileName}`);
+      const fileInfo = await S3Service.getFileInfo(key);
+      const presignedUrl = await S3Service.getSignedUrl(key);
 
       res.status(200).json(
         new PockityBaseResponse({
           success: true,
           message: "File metadata retrieved successfully",
           data: {
-            fileName,
-            key: `${prefix}${fileName}`,
+            fileName: fileName,
+            fileKey: key,
             size: fileInfo.size,
             sizeFormatted: formatFileSize(fileInfo.size),
             lastModified: fileInfo.lastModified,
@@ -323,17 +327,18 @@ export const bulkDeleteFilesController = async (req: Request, res: Response, nex
 
     const results = [];
     let totalSizeDeleted = 0;
-
+    let key = "";
     for (const fileName of fileNames) {
       try {
+        key = `${apiAccessKeyId}/${fileName}`;
         // Get file info first
-        const fileInfo = await S3Service.getFileInfo(fileName, apiAccessKeyId);
+        const fileInfo = await S3Service.getFileInfo(key);
 
         // Delete from S3
-        await S3Service.deleteFile(fileName, apiAccessKeyId);
+        await S3Service.deleteFile(key);
 
         // Update usage statistics
-        await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
+        await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, key);
 
         totalSizeDeleted += fileInfo.size;
 
@@ -397,8 +402,8 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
       }
 
       fileTypeAnalysis[category].count++;
-      fileTypeAnalysis[category].totalSize += file.size;
-      totalSize += file.size;
+      fileTypeAnalysis[category].totalSize += file.sizeInBytes;
+      totalSize += file.sizeInBytes;
     }
 
     // Calculate percentages
@@ -426,9 +431,9 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
             .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime())
             .slice(0, 10)
             .map((file) => ({
-              fileName: file.key,
-              size: file.size,
-              sizeFormatted: formatFileSize(file.size),
+              key: file.key,
+              size: file.sizeInBytes,
+              sizeFormatted: formatFileSize(file.sizeInBytes),
               lastModified: file.lastModified,
               category: getFileCategory(file.key.split(".").pop()?.toLowerCase() || "unknown"),
             })),

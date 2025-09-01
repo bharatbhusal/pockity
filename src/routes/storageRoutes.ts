@@ -10,7 +10,7 @@ import {
   getStorageAnalyticsController,
   uploadMiddleware,
 } from "../controllers/storageControllers";
-import { apiKeyAuth } from "@/middleware/apiKeyAuth";
+import { apiKeyAuth } from "../middleware/apiKeyAuth";
 
 const router = Router();
 

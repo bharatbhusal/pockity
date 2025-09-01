@@ -1,8 +1,8 @@
 import bcrypt from "bcrypt";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityErrorBadRequest, PockityErrorAuthentication } from "../utils/response/PockityErrorClasses";
-import { generateToken } from "@/utils/token";
-import { compareHashedData, hashData } from "@/utils/hash";
+import { generateToken } from "../utils/token";
+import { compareHashedData, hashData } from "../utils/hash";
 
 export interface RegisterUserData {
   email: string;

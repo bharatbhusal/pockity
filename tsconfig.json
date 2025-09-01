@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": "http://localhost:8080",
     "target": "es2016",
     "module": "commonjs",
     "rootDir": "./src",

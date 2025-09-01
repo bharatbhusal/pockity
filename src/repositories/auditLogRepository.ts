@@ -1,4 +1,4 @@
-import { prisma } from "@/config/prisma";
+import { prisma } from "../config/prisma";
 
 export const AuditLogRepository = {
   create: (data: any) => prisma.auditLog.create({ data }),

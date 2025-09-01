@@ -4,6 +4,7 @@ import { UserRepository } from "../repositories/userRepository";
 import { UsageService } from "../services/usageService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { PockityErrorInvalidInput, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
+import { ApiKeyRepository } from "../repositories";
 
 // Validation schemas
 const updateProfileSchema = z.object({
@@ -21,8 +22,7 @@ export const getUserProfileController = async (req: Request, res: Response, next
   try {
     const user = req.user;
     // Get usage and billing information
-    const usageData = await UsageService.getUsageWithQuota(user.id);
-
+    const apiKeys = await ApiKeyRepository.findByUserId(user.id);
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
@@ -37,13 +37,15 @@ export const getUserProfileController = async (req: Request, res: Response, next
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
           },
-          usage: {
-            bytesUsed: usageData.usage.bytesUsed.toString(),
-            objectsUsed: usageData.usage.objects,
-            quotaBytes: usageData.quota.maxBytes.toString(),
-            quotaObjects: usageData.quota.maxObjects,
-            usagePercentage: usageData.usagePercentage,
-          },
+          apiKeys: apiKeys.map((key: any) => ({
+            id: key.id,
+            apiAccessKeyId: key.accessKeyId,
+            name: key.name,
+            isActive: key.isActive,
+            createdAt: key.createdAt,
+            lastUsedAt: key.lastUsedAt,
+            revokedAt: key.revokedAt,
+          })),
         },
       }),
     );
@@ -188,9 +190,34 @@ export const getAccountSummaryController = async (req: Request, res: Response, n
   try {
     const user = req.user;
 
-    // Get comprehensive account information
-    const usageData = await UsageService.getUsageWithQuota(user.id);
-
+    const apiKeys = await ApiKeyRepository.findByUserId(user.id);
+    const apiKeysWithUsage = await Promise.all(
+      apiKeys.map(async (key: any) => {
+        const usageWithQuota = await UsageService.getUsageWithQuota(key.accessKeyId);
+        return {
+          id: key.id,
+          apiAccessKeyId: key.accessKeyId,
+          name: key.name,
+          isActive: key.isActive,
+          createdAt: key.createdAt,
+          lastUsedAt: key.lastUsedAt,
+          revokedAt: key.revokedAt,
+          quota: {
+            usage: {
+              gbsUsed: (Number(usageWithQuota.usage.bytesUsed) / 1024 ** 3).toFixed(2),
+              objects: usageWithQuota.usage.objects,
+              lastUpdated: usageWithQuota.usage.lastUpdated,
+            },
+            quota: {
+              maxGbs: (Number(usageWithQuota.quota.maxBytes) / 1024 ** 3).toFixed(2),
+              maxObjects: usageWithQuota.quota.maxObjects,
+              canUpload: usageWithQuota.quota.canUpload,
+              quotaExceeded: usageWithQuota.quota.quotaExceeded,
+            },
+          },
+        };
+      }),
+    );
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
@@ -204,22 +231,12 @@ export const getAccountSummaryController = async (req: Request, res: Response, n
             emailVerified: user.emailVerified,
             createdAt: user.createdAt,
           },
-          usage: {
-            current: {
-              bytesUsed: usageData.usage.bytesUsed.toString(),
-              objectsUsed: usageData.usage.objects,
-              lastUpdated: usageData.usage.lastUpdated,
-            },
-            quota: {
-              maxBytes: usageData.quota.maxBytes.toString(),
-              maxObjects: usageData.quota.maxObjects,
-            },
-            percentage: usageData.usagePercentage,
-          },
+          apiKeys: apiKeysWithUsage,
         },
       }),
     );
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };

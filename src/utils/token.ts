@@ -1,4 +1,4 @@
-import { env } from "@/config/env";
+import { env } from "../config/env";
 import { JwtPayload } from "jsonwebtoken";
 import jwt from "jsonwebtoken";
 import { PockityErrorAuthentication } from "./response/PockityErrorClasses";

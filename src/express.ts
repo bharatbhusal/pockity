@@ -28,3 +28,13 @@ app.use("/api/users", UserRouter);
 app.use(errorHandler);
 
 export { app as ExpressApplication };
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+      adminUser?: any;
+      apiAccessKeyId?: string;
+    }
+  }
+}
