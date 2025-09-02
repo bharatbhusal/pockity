@@ -11,7 +11,7 @@ const sendOtpSchema = z.object({
 });
 
 const verifyOtpSchema = z.object({
-  otp: z.string().length(6, "OTP must be 6 digits"),
+  otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must contain only digits"),
 });
 
 // Send OTP to user's email
