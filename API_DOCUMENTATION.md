@@ -1179,6 +1179,337 @@ curl -X GET /storage/files \
 }
 ```
 
+### API Key Request Management
+
+#### Create API Key Request
+- **POST** `/api-key-requests`
+- **Auth:** Required (JWT)
+- **Description:** Request custom storage quota for API key creation
+- **Body:**
+```json
+{
+  "requestedStorageGB": 5,
+  "requestedObjects": 10000,
+  "reason": "Need additional storage for my application data backup"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key request submitted successfully. Admin will review your request.",
+  "data": {
+    "request": {
+      "id": "request_id",
+      "requestedStorageGB": 5,
+      "requestedObjects": 10000,
+      "reason": "Need additional storage for my application data backup",
+      "status": "PENDING",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+#### Get User's API Key Requests
+- **GET** `/api-key-requests`
+- **Auth:** Required (JWT)
+- **Description:** Get all API key requests for the authenticated user
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key requests retrieved successfully",
+  "data": {
+    "requests": [
+      {
+        "id": "request_id",
+        "requestedStorageGB": 5,
+        "requestedObjects": 10000,
+        "reason": "Need additional storage for my application data backup",
+        "status": "APPROVED",
+        "reviewerComment": "Approved for legitimate business use",
+        "reviewedAt": "2024-01-02T00:00:00.000Z",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+#### Get Specific API Key Request
+- **GET** `/api-key-requests/:id`
+- **Auth:** Required (JWT)
+- **Description:** Get details of a specific API key request
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key request retrieved successfully",
+  "data": {
+    "request": {
+      "id": "request_id",
+      "requestedStorageGB": 5,
+      "requestedObjects": 10000,
+      "reason": "Need additional storage for my application data backup",
+      "status": "APPROVED",
+      "reviewerComment": "Approved for legitimate business use",
+      "reviewedAt": "2024-01-02T00:00:00.000Z",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+### Admin API Key Request Management
+
+#### Get All API Key Requests (Admin)
+- **GET** `/api-key-requests/admin/all`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get all API key requests with user information
+- **Query Parameters:**
+  - `status` (optional): Filter by status (PENDING, APPROVED, REJECTED)
+  - `limit` (optional): Number of results (default: 50)
+  - `offset` (optional): Offset for pagination (default: 0)
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key requests retrieved successfully",
+  "data": {
+    "requests": [
+      {
+        "id": "request_id",
+        "user": {
+          "id": "user_id",
+          "email": "user@example.com",
+          "name": "John Doe"
+        },
+        "requestedStorageGB": 5,
+        "requestedObjects": 10000,
+        "reason": "Need additional storage for my application data backup",
+        "status": "PENDING",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "limit": 50,
+      "offset": 0,
+      "total": 1
+    }
+  }
+}
+```
+
+#### Review API Key Request (Admin)
+- **PATCH** `/api-key-requests/admin/:id/review`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Approve or reject an API key request
+- **Body:**
+```json
+{
+  "approved": true,
+  "reviewerComment": "Approved for legitimate business use"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key request approved successfully",
+  "data": {
+    "request": {
+      "id": "request_id",
+      "user": {
+        "id": "user_id",
+        "email": "user@example.com",
+        "name": "John Doe"
+      },
+      "requestedStorageGB": 5,
+      "requestedObjects": 10000,
+      "reason": "Need additional storage for my application data backup",
+      "status": "APPROVED",
+      "reviewerComment": "Approved for legitimate business use",
+      "reviewedAt": "2024-01-02T00:00:00.000Z",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+### Admin Dashboard
+
+#### Get System Health
+- **GET** `/admin/health`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get system health and statistics overview
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "System health retrieved successfully",
+  "data": {
+    "systemHealth": {
+      "status": "healthy",
+      "uptime": 1234567,
+      "timestamp": "2024-01-01T00:00:00.000Z"
+    },
+    "userStatistics": {
+      "total": 100,
+      "verified": 85,
+      "admins": 3,
+      "recentSignups": 12,
+      "verificationRate": "85.00"
+    },
+    "apiKeyStatistics": {
+      "total": 45,
+      "active": 42,
+      "revoked": 3,
+      "utilizationRate": "93.33"
+    },
+    "activityStatistics": {
+      "recentActions": 156,
+      "totalAuditLogs": 2345
+    },
+    "requestStatistics": {
+      "pending": 5,
+      "approved": 23,
+      "rejected": 2,
+      "total": 30
+    }
+  }
+}
+```
+
+#### Get User Analytics
+- **GET** `/admin/users`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get detailed user analytics and management data
+- **Query Parameters:**
+  - `limit` (optional): Number of results (default: 50)
+  - `offset` (optional): Offset for pagination (default: 0)
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "User analytics retrieved successfully",
+  "data": {
+    "users": [
+      {
+        "id": "user_id",
+        "email": "user@example.com",
+        "name": "John Doe",
+        "role": "USER",
+        "emailVerified": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "statistics": {
+          "apiKeys": {
+            "total": 3,
+            "active": 2,
+            "revoked": 1
+          },
+          "requests": {
+            "total": 2,
+            "pending": 0,
+            "approved": 2,
+            "rejected": 0
+          }
+        }
+      }
+    ],
+    "pagination": {
+      "limit": 50,
+      "offset": 0,
+      "total": 100
+    }
+  }
+}
+```
+
+#### Get API Key Overview
+- **GET** `/admin/api-keys`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get API key overview and usage statistics
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key overview retrieved successfully",
+  "data": {
+    "overview": [
+      {
+        "user": {
+          "id": "user_id",
+          "email": "user@example.com",
+          "name": "John Doe"
+        },
+        "apiKeys": [
+          {
+            "id": "key_id",
+            "accessKeyId": "pk_abc123",
+            "name": "My API Key",
+            "isActive": true,
+            "createdAt": "2024-01-01T00:00:00.000Z",
+            "lastUsedAt": "2024-01-02T12:00:00.000Z",
+            "revokedAt": null
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "totalUsers": 50,
+      "totalApiKeys": 120,
+      "activeKeys": 115,
+      "revokedKeys": 5
+    }
+  }
+}
+```
+
+#### Get System Audit Logs
+- **GET** `/admin/audit-logs`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get system audit logs with filtering capabilities
+- **Query Parameters:**
+  - `action` (optional): Filter by action type (e.g., USER_LOGIN, API_KEY_CREATE)
+  - `userId` (optional): Filter by user ID
+  - `limit` (optional): Number of results (default: 100)
+  - `offset` (optional): Offset for pagination (default: 0)
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Audit logs retrieved successfully",
+  "data": {
+    "auditLogs": [
+      {
+        "id": "log_id",
+        "action": "USER_LOGIN",
+        "apiAccessKeyId": null,
+        "actorId": "user_id",
+        "detail": "User user@example.com logged in successfully",
+        "metadata": {
+          "email": "user@example.com",
+          "ipAddress": "192.168.1.1",
+          "userAgent": "Mozilla/5.0...",
+          "timestamp": "2024-01-01T00:00:00.000Z"
+        },
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "limit": 100,
+      "offset": 0,
+      "total": 2345
+    },
+    "filters": {
+      "action": "USER_LOGIN",
+      "userId": null
+    }
+  }
+}
+```
+
 ## Rate Limiting
 
 Currently, there are no rate limits implemented, but in a production environment, you should implement rate limiting to prevent abuse.
@@ -1196,6 +1527,9 @@ Currently, there are no rate limits implemented, but in a production environment
 - `FORBIDDEN`: Insufficient permissions
 - `QUOTA_EXCEEDED`: Storage quota exceeded
 - `PAYMENT_REQUIRED`: Payment required for premium features
+- `REQUEST_EXISTS`: Duplicate request (e.g., pending API key request already exists)
+- `REQUEST_ALREADY_REVIEWED`: API key request has already been reviewed
+- `AUDIT_LOG_FAILURE`: Failed to create audit log entry (system error)
 
 ## SDKs and Libraries
 

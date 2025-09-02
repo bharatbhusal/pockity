@@ -13,6 +13,7 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
   - Admin approval flow for storage tier selection & upgrades
   - Role-based access control (USER/ADMIN)
   - Comprehensive account summary with usage and billing info
+  - **NEW:** Comprehensive audit logging for all critical user events
 
 - 🔑 **API Key Management**
   - Generate multiple API key pairs per user
@@ -21,6 +22,8 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
   - Revocation & activity tracking
   - **NEW:** Automatic S3 folder creation for complete isolation
   - **NEW:** Each API key gets its own storage namespace
+  - **NEW:** API key request system with admin approval workflow
+  - **NEW:** Users request specific storage quotas instead of default allocation
 
 - 📂 **Advanced Storage Control**
   - All users share the same S3 bucket with intelligent prefix routing
@@ -28,6 +31,7 @@ Inspired by Doraemon’s infinite pocket, Pockity aims to give developers a **sc
   - **User Storage:** Traditional `users/{userId}/` prefix for JWT authentication (backward compatible)
   - Real-time quota enforcement before file uploads
   - Tier-based quotas (storage in GB, object count)
+  - **NEW:** Quota exceeded events automatically logged for monitoring
   - Real-time usage tracking with database synchronization
   - Secure file operations with presigned URLs
   - **NEW:** Bulk file operations (bulk delete)
@@ -124,9 +128,20 @@ Pockity ensures complete data isolation between users and API keys through sever
 - Automatic S3 folder provisioning ensures immediate isolation
 
 ### Admin Controls
-- Admin-only endpoints for managing tier requests and approvals
+- Admin-only endpoints for managing API key requests and approvals
+- **NEW:** Comprehensive admin dashboard with system health monitoring
+- **NEW:** User analytics and API key overview for administrators
+- **NEW:** Real-time audit log monitoring with filtering capabilities
 - Role-based middleware ensures only admins can access sensitive operations
-- Audit logging for all administrative actions
+- Comprehensive audit logging for all administrative actions
+
+### Audit & Compliance
+- **NEW:** Strict audit logging for all critical system events
+- **NEW:** Automated logging of user registration, login, profile updates, deletions
+- **NEW:** Complete API key lifecycle tracking (creation, usage, revocation)
+- **NEW:** Email verification events and quota exceeded incidents
+- **NEW:** Admin action logging with detailed metadata
+- **NEW:** IP address and user agent tracking for security analysis
 
 ### Environment Security
 - All AWS credentials and sensitive data stored in environment variables
@@ -233,10 +248,23 @@ npm run dev
 - `POST /api/tier-requests` → Request tier upgrade
 - `GET /api/tier-requests` → Get user's tier requests
 
+### API Key Request Management
+- `POST /api/api-key-requests` → Create API key request with custom storage quota
+- `GET /api/api-key-requests` → Get user's API key requests
+- `GET /api/api-key-requests/:id` → Get specific API key request details
+
 ### Admin Operations
 - `GET /api/tier-requests/admin/all` → List all tier requests (admin only)
 - `PATCH /api/tier-requests/admin/:id/approve` → Approve/reject tier request (admin only)
 - `GET /api/tiers/admin/all` → List all tiers including private ones (admin only)
+- `GET /api/api-key-requests/admin/all` → List all API key requests (admin only)
+- `PATCH /api/api-key-requests/admin/:id/review` → Approve/reject API key request (admin only)
+
+### Admin Dashboard
+- `GET /api/admin/health` → System health and statistics overview
+- `GET /api/admin/users` → User analytics and management data
+- `GET /api/admin/api-keys` → API key overview and usage statistics
+- `GET /api/admin/audit-logs` → System audit logs with filtering
 
 ### Public Endpoints
 - `GET /api/open/health` → Health check
@@ -343,6 +371,55 @@ curl -X POST http://localhost:8080/api/users/change-password \
 # Get comprehensive account summary
 curl -X GET http://localhost:8080/api/users/summary \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### API Key Request Management
+```bash
+# Request custom storage quota for API key
+curl -X POST http://localhost:8080/api/api-key-requests \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestedStorageGB": 5,
+    "requestedObjects": 10000,
+    "reason": "Need additional storage for my application data backup"
+  }'
+
+# Get your API key requests
+curl -X GET http://localhost:8080/api/api-key-requests \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Get specific request details
+curl -X GET http://localhost:8080/api/api-key-requests/request_id \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Admin Dashboard & Management
+```bash
+# Get system health overview (admin only)
+curl -X GET http://localhost:8080/api/admin/health \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+
+# Get user analytics (admin only)
+curl -X GET http://localhost:8080/api/admin/users?limit=20&offset=0 \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+
+# Get API key overview (admin only)
+curl -X GET http://localhost:8080/api/admin/api-keys \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+
+# Get system audit logs (admin only)
+curl -X GET "http://localhost:8080/api/admin/audit-logs?action=USER_LOGIN&limit=100" \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+
+# Review API key request (admin only)
+curl -X PATCH http://localhost:8080/api/api-key-requests/admin/request_id/review \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "approved": true,
+    "reviewerComment": "Approved for legitimate business use"
+  }'
 ```
 
 ### Billing & Payment Management
