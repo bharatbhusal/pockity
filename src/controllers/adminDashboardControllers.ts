@@ -2,13 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import { UserRepository, ApiKeyRepository, AuditLogRepository, ApiKeyRequestRepository } from "../repositories";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { AuditLogService } from "../services/auditLogService";
-import { getAuditContext } from "../utils/auditHelpers";
+
 
 // Get overall system health and statistics
 export const getSystemHealthController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    const auditContext = getAuditContext(req);
+    
 
     // Get basic system statistics
     const [users, apiKeys, auditLogs, apiKeyRequests] = await Promise.all([
@@ -49,7 +49,7 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
       adminId: admin.id,
       action: "VIEW_SYSTEM_HEALTH",
       details: "Accessed system health dashboard",
-      ...auditContext,
+      
     });
 
     res.status(200).json(
@@ -97,7 +97,7 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
 export const getUserAnalyticsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    const auditContext = getAuditContext(req);
+    
     const { limit = 50, offset = 0 } = req.query;
 
     const users = await UserRepository.list();
@@ -138,7 +138,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
       action: "VIEW_USER_ANALYTICS",
       details: "Accessed user analytics dashboard",
       metadata: { limit, offset },
-      ...auditContext,
+      
     });
 
     res.status(200).json(
@@ -164,7 +164,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
 export const getSystemAuditLogsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    const auditContext = getAuditContext(req);
+    
     const { action, userId, limit = 100, offset = 0 } = req.query;
 
     // Get audit logs (in a real implementation, you'd add filtering to the repository)
@@ -193,7 +193,7 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
       action: "VIEW_AUDIT_LOGS",
       details: "Accessed system audit logs",
       metadata: { action, userId, limit, offset },
-      ...auditContext,
+      
     });
 
     res.status(200).json(
@@ -223,7 +223,7 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
 export const getApiKeyOverviewController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    const auditContext = getAuditContext(req);
+    
 
     const apiKeys = await ApiKeyRepository.list();
 
@@ -261,7 +261,7 @@ export const getApiKeyOverviewController = async (req: Request, res: Response, n
       adminId: admin.id,
       action: "VIEW_API_KEY_OVERVIEW",
       details: "Accessed API key overview dashboard",
-      ...auditContext,
+      
     });
 
     res.status(200).json(

@@ -45,6 +45,13 @@ const reviewUpgradeRequestSchema = z.object({
   reviewerComment: z.string().max(500, "Comment too long").optional(),
 });
 
+/**
+ * List all API keys for the authenticated user
+ * @param req - Express request object containing user information
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to a list of user's API keys (without secrets)
+ */
 export const listApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get all API keys for the user
@@ -73,6 +80,14 @@ export const listApiKeysController = async (req: Request, res: Response, next: N
   }
 };
 
+/**
+ * Revoke an API key belonging to the authenticated user
+ * Once revoked, the API key becomes permanently inactive and cannot be used for storage operations
+ * @param req - Express request object containing the API key ID in params
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to a success response
+ */
 export const revokeApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Validate request params
@@ -137,6 +152,14 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
   }
 };
 
+/**
+ * Get details of a specific API key
+ * Returns API key information without sensitive data like secret hash
+ * @param req - Express request object containing the API key ID in params
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to API key details
+ */
 export const getApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -180,6 +203,15 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
 };
 
 // Create a new API key request
+/**
+ * Create a new API key request
+ * Users must request API keys with specific storage and object limits before they can be created
+ * Admins will review and approve/reject these requests
+ * @param req - Express request object containing request details (storage, objects, reason, keyName)
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to the created API key request
+ */
 export const createApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Validate request body
@@ -256,6 +288,14 @@ export const createApiKeyRequestController = async (req: Request, res: Response,
 };
 
 // Get user's API key requests
+/**
+ * Get all API key requests for the authenticated user
+ * Returns a list of API key requests made by the user with their current status
+ * @param req - Express request object containing user information
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to user's API key requests
+ */
 export const getUserApiKeyRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
@@ -285,6 +325,14 @@ export const getUserApiKeyRequestsController = async (req: Request, res: Respons
 };
 
 // Admin: Get all API key requests
+/**
+ * Get all API key requests across all users (admin only)
+ * Allows administrators to view and manage all pending, approved, and rejected API key requests
+ * @param req - Express request object with optional status query parameter
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to all API key requests
+ */
 export const getAllApiKeyRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
@@ -336,6 +384,15 @@ export const getAllApiKeyRequestsController = async (req: Request, res: Response
 };
 
 // Admin: Approve or reject API key request
+/**
+ * Review an API key request (admin only)
+ * Allows administrators to approve or reject API key requests
+ * When approved, creates a new API key with the requested limits and emails the credentials to the user
+ * @param req - Express request object containing approval decision and optional reviewer comment
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to the updated request with review decision
+ */
 export const reviewApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Validate request body
@@ -445,6 +502,14 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
 };
 
 // Get a specific API key request
+/**
+ * Get details of a specific API key request
+ * Users can view their own requests, admins can view any request
+ * @param req - Express request object containing the request ID in params
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to the API key request details
+ */
 export const getApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -618,6 +683,14 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
 /**
  * Get user's API key upgrade requests
  */
+/**
+ * Get user's API key upgrade requests
+ * Returns all upgrade requests made by the authenticated user for their existing API keys
+ * @param req - Express request object containing user information
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to user's API key upgrade requests
+ */
 export const getUserApiKeyUpgradeRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
@@ -655,6 +728,14 @@ export const getUserApiKeyUpgradeRequestsController = async (req: Request, res: 
 
 /**
  * Get specific API key upgrade request
+ */
+/**
+ * Get specific API key upgrade request
+ * Users can view their own upgrade requests, admins can view any upgrade request
+ * @param req - Express request object containing the upgrade request ID in params
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to the upgrade request details
  */
 export const getApiKeyUpgradeRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -706,6 +787,14 @@ export const getApiKeyUpgradeRequestController = async (req: Request, res: Respo
 
 /**
  * Get all API key upgrade requests (admin only)
+ */
+/**
+ * Get all API key upgrade requests (admin only)
+ * Allows administrators to view and manage all API key upgrade requests across all users
+ * @param req - Express request object with optional status query parameter
+ * @param res - Express response object
+ * @param next - Express next function for error handling
+ * @returns Promise that resolves to all API key upgrade requests
  */
 export const getAllApiKeyUpgradeRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {

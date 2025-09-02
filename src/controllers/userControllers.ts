@@ -6,7 +6,6 @@ import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { PockityErrorInvalidInput, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
 import { ApiKeyRepository } from "../repositories";
 import { AuditLogService } from "../services/auditLogService";
-import { getAuditContext } from "../utils/auditHelpers";
 
 // Validation schemas
 const updateProfileSchema = z.object({
@@ -71,7 +70,7 @@ export const updateUserProfileController = async (req: Request, res: Response, n
 
     const { name, email } = validationResult.data;
     const user = req.user;
-    const auditContext = getAuditContext(req);
+    
 
     // Check if email is already taken by another user
     if (email && email !== user.email) {
@@ -99,7 +98,7 @@ export const updateUserProfileController = async (req: Request, res: Response, n
       userId: user.id,
       actorId: user.id, // User updating their own profile
       changes: updateData,
-      ...auditContext,
+      
     });
 
     res.status(200).json(
@@ -173,13 +172,13 @@ export const changePasswordController = async (req: Request, res: Response, next
 export const deleteUserAccountController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
-    const auditContext = getAuditContext(req);
+    
 
     // Log the account deletion before performing it
     await AuditLogService.logUserDelete({
       userId: user.id,
       actorId: user.id, // User deleting their own account
-      ...auditContext,
+      
     });
 
     // TODO: In a real implementation, we should:

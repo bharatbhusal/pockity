@@ -42,9 +42,17 @@ interface AuditLogData {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Service for handling audit logging throughout the application
+ * Provides methods for logging various system events like user actions, API key management, admin actions, etc.
+ * All audit logs are stored in the database and optionally logged to file system for backup
+ */
 export class AuditLogService {
   /**
    * Create an audit log entry for critical system events
+   * This is the base logging method used by all other specialized logging methods
+   * @param data - The audit log data containing action, actor, details, and metadata
+   * @returns Promise that resolves when the audit log is successfully created
    */
   static async log(data: AuditLogData): Promise<void> {
     try {
@@ -80,7 +88,10 @@ export class AuditLogService {
   }
 
   /**
-   * Log user authentication events
+   * Log user authentication events (login success/failure)
+   * @param action - The authentication action (USER_LOGIN or USER_LOGIN_FAILED)
+   * @param data - Authentication event data including user info and failure reason if applicable
+   * @returns Promise that resolves when the log is created
    */
   static async logUserAuth(
     action: "USER_LOGIN" | "USER_LOGIN_FAILED",
@@ -106,6 +117,9 @@ export class AuditLogService {
 
   /**
    * Log user registration events
+   * Records when new users successfully register for the platform
+   * @param data - Registration event data including user ID and email
+   * @returns Promise that resolves when the log is created
    */
   static async logUserRegister(data: {
     userId: string;
@@ -123,6 +137,9 @@ export class AuditLogService {
 
   /**
    * Log user profile updates
+   * Records when user profiles are modified, including who made the changes
+   * @param data - Update event data including target user, actor, and changes made
+   * @returns Promise that resolves when the log is created
    */
   static async logUserUpdate(data: {
     userId: string;
@@ -177,7 +194,11 @@ export class AuditLogService {
   }
 
   /**
-   * Log API key management events
+   * Log API key management events (create, delete, revoke)
+   * Records critical API key lifecycle events for security auditing
+   * @param action - The type of API key action performed
+   * @param data - API key event data including key info, user, and actor details
+   * @returns Promise that resolves when the log is created
    */
   static async logApiKeyEvent(
     action: "API_KEY_CREATE" | "API_KEY_DELETE" | "API_KEY_REVOKE",
@@ -204,6 +225,9 @@ export class AuditLogService {
 
   /**
    * Log quota exceeded events
+   * Records when users exceed their storage or object quotas
+   * @param data - Quota event data including usage details and limits
+   * @returns Promise that resolves when the log is created
    */
   static async logQuotaExceeded(data: {
     apiAccessKeyId: string;
@@ -226,7 +250,10 @@ export class AuditLogService {
   }
 
   /**
-   * Log admin actions
+   * Log administrative actions
+   * Records when administrators perform privileged operations
+   * @param data - Admin action data including admin ID, action type, target, and details
+   * @returns Promise that resolves when the log is created
    */
   static async logAdminAction(data: {
     adminId: string;
@@ -249,6 +276,9 @@ export class AuditLogService {
 
   /**
    * Get audit logs with filtering options
+   * Retrieves audit logs from the database with optional filtering
+   * @param filters - Optional filters for action, API key, actor, date range, and limit
+   * @returns Promise that resolves to filtered audit logs
    */
   static async getAuditLogs(filters?: {
     action?: AuditAction;
