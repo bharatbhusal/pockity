@@ -8,6 +8,8 @@ import { ApiKeyRouter } from "./routes/apiKeyRoutes";
 import { StorageRouter } from "./routes/storageRoutes";
 import { UserRouter } from "./routes/userRoutes";
 import { OtpRouter } from "./routes/otpRoutes";
+import { ApiKeyRequestRouter } from "./routes/apiKeyRequestRoutes";
+import { AdminDashboardRouter } from "./routes/adminDashboardRoutes";
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use("/api/otp", OtpRouter);
 app.use("/api/apikeys", ApiKeyRouter);
 app.use("/api/storage", StorageRouter);
 app.use("/api/users", UserRouter);
+app.use("/api/api-key-requests", ApiKeyRequestRouter);
+app.use("/api/admin", AdminDashboardRouter);
 
 app.use(errorHandler);
 

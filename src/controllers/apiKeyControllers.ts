@@ -10,6 +10,8 @@ import {
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
 import { hashData } from "../utils/hash";
+import { AuditLogService } from "../services/auditLogService";
+import { getAuditContext } from "../utils/auditHelpers";
 
 // Validation schemas
 const createApiKeySchema = z.object({
@@ -33,6 +35,7 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { name } = validationResult.data;
+    const auditContext = getAuditContext(req);
 
     // Verify user exists
 
@@ -56,6 +59,16 @@ export const createApiKeyController = async (req: Request, res: Response, next: 
       secretHash,
       name,
       userId: req.user.id,
+    });
+
+    // Log API key creation
+    await AuditLogService.logApiKeyEvent("API_KEY_CREATE", {
+      apiKeyId: apiKey.id,
+      apiAccessKeyId: apiKey.accessKeyId,
+      userId: req.user.id,
+      actorId: req.user.id,
+      keyName: name,
+      ...auditContext,
     });
 
     res.status(201).json(
@@ -118,6 +131,7 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { id } = validationResult.data;
+    const auditContext = getAuditContext(req);
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
@@ -140,6 +154,16 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     const revokedKey = await ApiKeyRepository.update(id, {
       isActive: false,
       revokedAt: new Date(),
+    });
+
+    // Log API key revocation
+    await AuditLogService.logApiKeyEvent("API_KEY_REVOKE", {
+      apiKeyId: revokedKey.id,
+      apiAccessKeyId: revokedKey.accessKeyId,
+      userId: req.user.id,
+      actorId: req.user.id,
+      keyName: revokedKey.name,
+      ...auditContext,
     });
 
     res.status(200).json(

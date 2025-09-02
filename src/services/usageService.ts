@@ -1,5 +1,7 @@
 import { UsageCurrentRepository } from "../repositories/usageCurrentRepository";
 import { AuditLogRepository } from "../repositories/auditLogRepository";
+import { AuditLogService } from "./auditLogService";
+import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 
 export interface UsageStats {
   bytesUsed: bigint;
@@ -55,6 +57,37 @@ export const UsageService = {
     const bytesExceeded = newBytesUsed > maxBytes;
     const objectsExceeded = newObjectCount > maxObjects;
     const quotaExceeded = bytesExceeded || objectsExceeded;
+
+    // Log quota exceeded events
+    if (quotaExceeded) {
+      try {
+        // Get the API key to find the user
+        const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
+        if (apiKey) {
+          if (bytesExceeded) {
+            await AuditLogService.logQuotaExceeded({
+              apiAccessKeyId,
+              userId: apiKey.userId,
+              quotaType: "storage",
+              currentUsage: Number(newBytesUsed),
+              limit: Number(maxBytes),
+            });
+          }
+          if (objectsExceeded) {
+            await AuditLogService.logQuotaExceeded({
+              apiAccessKeyId,
+              userId: apiKey.userId,
+              quotaType: "objects",
+              currentUsage: newObjectCount,
+              limit: maxObjects,
+            });
+          }
+        }
+      } catch (error) {
+        // Don't fail the quota check if audit logging fails
+        console.error("Failed to log quota exceeded event:", error);
+      }
+    }
 
     return {
       maxBytes,
