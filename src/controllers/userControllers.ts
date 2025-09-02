@@ -174,7 +174,7 @@ export const deleteUserAccountController = async (req: Request, res: Response, n
   try {
     const user = req.user;
     const auditContext = getAuditContext(req);
-    
+
     // Log the account deletion before performing it
     await AuditLogService.logUserDelete({
       userId: user.id,

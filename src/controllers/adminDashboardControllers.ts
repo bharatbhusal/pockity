@@ -67,13 +67,13 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
             verified: verifiedUsers,
             admins: adminUsers,
             recentSignups: recentUsers,
-            verificationRate: totalUsers > 0 ? (verifiedUsers / totalUsers * 100).toFixed(2) : 0,
+            verificationRate: totalUsers > 0 ? ((verifiedUsers / totalUsers) * 100).toFixed(2) : 0,
           },
           apiKeyStatistics: {
             total: totalApiKeys,
             active: activeApiKeys,
             revoked: revokedApiKeys,
-            utilizationRate: totalApiKeys > 0 ? (activeApiKeys / totalApiKeys * 100).toFixed(2) : 0,
+            utilizationRate: totalApiKeys > 0 ? ((activeApiKeys / totalApiKeys) * 100).toFixed(2) : 0,
           },
           activityStatistics: {
             recentActions: recentAuditLogs.length,
@@ -101,13 +101,13 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
     const { limit = 50, offset = 0 } = req.query;
 
     const users = await UserRepository.list();
-    
+
     // Enhanced user analytics with API key and request data
     const userAnalytics = await Promise.all(
       users.slice(Number(offset), Number(offset) + Number(limit)).map(async (user: any) => {
         const userApiKeys = await ApiKeyRepository.findByUserId(user.id);
         const userRequests = await ApiKeyRequestRepository.findByUserId(user.id);
-        
+
         return {
           id: user.id,
           email: user.email,
@@ -129,7 +129,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
             },
           },
         };
-      })
+      }),
     );
 
     // Log admin access
@@ -169,14 +169,14 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
 
     // Get audit logs (in a real implementation, you'd add filtering to the repository)
     const allLogs = await AuditLogRepository.list();
-    
+
     let filteredLogs = allLogs;
-    
+
     // Apply filters
     if (action && typeof action === "string") {
       filteredLogs = filteredLogs.filter((log: any) => log.action === action);
     }
-    
+
     if (userId && typeof userId === "string") {
       filteredLogs = filteredLogs.filter((log: any) => log.actorId === userId);
     }
@@ -226,10 +226,10 @@ export const getApiKeyOverviewController = async (req: Request, res: Response, n
     const auditContext = getAuditContext(req);
 
     const apiKeys = await ApiKeyRepository.list();
-    
+
     // Group API keys by user and add usage statistics
     const apiKeysByUser = new Map();
-    
+
     for (const apiKey of apiKeys) {
       if (!apiKeysByUser.has(apiKey.userId)) {
         const user = await UserRepository.findById(apiKey.userId);
@@ -242,7 +242,7 @@ export const getApiKeyOverviewController = async (req: Request, res: Response, n
           apiKeys: [],
         });
       }
-      
+
       apiKeysByUser.get(apiKey.userId).apiKeys.push({
         id: apiKey.id,
         accessKeyId: apiKey.accessKeyId,

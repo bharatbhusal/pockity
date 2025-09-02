@@ -46,10 +46,11 @@ export const UsageService = {
   async checkQuotaLimits(apiAccessKeyId: string, fileSizeBytes: number): Promise<QuotaLimits> {
     // Get current usage
     const currentUsage = await this.getCurrentUsage(apiAccessKeyId);
+    const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
 
     // Default to a basic free tier if no subscription
-    let maxBytes = BigInt(1024 * 1024 * 1024); // 1GB default
-    let maxObjects = 1000; // 1000 objects default
+    let maxBytes = apiKey?.totalStorage || BigInt(1024 * 1024 * 1024); // 1GB default
+    let maxObjects = apiKey?.totalObjects || 1000; // 1000 objects default
 
     const newBytesUsed = currentUsage.bytesUsed + BigInt(fileSizeBytes);
     const newObjectCount = currentUsage.objects + 1;

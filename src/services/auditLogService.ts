@@ -5,12 +5,12 @@ import { logger } from "../utils/logger";
 export const AUDIT_ACTIONS = {
   // User management events
   USER_REGISTER: "USER_REGISTER",
-  USER_LOGIN: "USER_LOGIN", 
+  USER_LOGIN: "USER_LOGIN",
   USER_LOGIN_FAILED: "USER_LOGIN_FAILED",
   USER_UPDATE: "USER_UPDATE",
   USER_DELETE: "USER_DELETE",
   USER_EMAIL_VERIFIED: "USER_EMAIL_VERIFIED",
-  
+
   // API key management events
   API_KEY_CREATE: "API_KEY_CREATE",
   API_KEY_DELETE: "API_KEY_DELETE",
@@ -19,18 +19,18 @@ export const AUDIT_ACTIONS = {
   API_KEY_REQUEST_APPROVE: "API_KEY_REQUEST_APPROVE",
   API_KEY_REQUEST_REJECT: "API_KEY_REQUEST_REJECT",
   API_KEY_UPGRADE_REQUEST: "API_KEY_UPGRADE_REQUEST",
-  
+
   // System events
   QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
   STORAGE_UPLOAD: "STORAGE_UPLOAD",
   STORAGE_DELETE: "STORAGE_DELETE",
-  
+
   // Admin events
   ADMIN_ACTION: "ADMIN_ACTION",
   SYSTEM_EVENT: "SYSTEM_EVENT",
 } as const;
 
-export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS];
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 interface AuditLogData {
   action: AuditAction;
@@ -75,7 +75,7 @@ export class AuditLogService {
         message: "Failed to create audit log entry",
         obj: { error, auditData: data },
       });
-      
+
       // In production, you might want to send this to a monitoring service
       console.error("AUDIT LOG FAILURE:", error);
     }
@@ -84,19 +84,23 @@ export class AuditLogService {
   /**
    * Log user authentication events
    */
-  static async logUserAuth(action: "USER_LOGIN" | "USER_LOGIN_FAILED", data: {
-    userId?: string;
-    email: string;
-    ipAddress?: string;
-    userAgent?: string;
-    failureReason?: string;
-  }): Promise<void> {
+  static async logUserAuth(
+    action: "USER_LOGIN" | "USER_LOGIN_FAILED",
+    data: {
+      userId?: string;
+      email: string;
+      ipAddress?: string;
+      userAgent?: string;
+      failureReason?: string;
+    },
+  ): Promise<void> {
     await this.log({
       action,
       actorId: data.userId,
-      detail: action === "USER_LOGIN" ? 
-        `User ${data.email} logged in successfully` : 
-        `Failed login attempt for ${data.email}: ${data.failureReason}`,
+      detail:
+        action === "USER_LOGIN"
+          ? `User ${data.email} logged in successfully`
+          : `Failed login attempt for ${data.email}: ${data.failureReason}`,
       metadata: {
         email: data.email,
         failureReason: data.failureReason,
@@ -197,20 +201,23 @@ export class AuditLogService {
   /**
    * Log API key management events
    */
-  static async logApiKeyEvent(action: "API_KEY_CREATE" | "API_KEY_DELETE" | "API_KEY_REVOKE", data: {
-    apiKeyId: string;
-    apiAccessKeyId: string;
-    userId: string;
-    actorId: string;
-    keyName?: string;
-    ipAddress?: string;
-    userAgent?: string;
-  }): Promise<void> {
+  static async logApiKeyEvent(
+    action: "API_KEY_CREATE" | "API_KEY_DELETE" | "API_KEY_REVOKE",
+    data: {
+      apiKeyId: string;
+      apiAccessKeyId: string;
+      userId: string;
+      actorId: string;
+      keyName?: string;
+      ipAddress?: string;
+      userAgent?: string;
+    },
+  ): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS[action],
       apiAccessKeyId: data.apiAccessKeyId,
       actorId: data.actorId,
-      detail: `API key ${action.toLowerCase().replace('_', ' ')}: ${data.keyName || data.apiKeyId}`,
+      detail: `API key ${action.toLowerCase().replace("_", " ")}: ${data.keyName || data.apiKeyId}`,
       metadata: {
         apiKeyId: data.apiKeyId,
         userId: data.userId,

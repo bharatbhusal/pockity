@@ -95,7 +95,7 @@ export const loginController = async (req: Request, res: Response, next: NextFun
         failureReason: loginError instanceof Error ? loginError.message : "Unknown error",
         ...auditContext,
       });
-      
+
       // Re-throw the error to be handled by the error handler
       throw loginError;
     }
