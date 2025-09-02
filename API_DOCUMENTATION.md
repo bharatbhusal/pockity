@@ -142,11 +142,61 @@ HTTP status codes:
 }
 ```
 
+### Email Verification (OTP)
+
+#### Send OTP
+- **POST** `/otp/send`
+- **Auth:** Required
+- **Description:** Send OTP to user's email for verification
+- **Body (Optional):**
+```json
+{
+  "email": "newemail@example.com"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully to your email",
+  "data": {
+    "email": "user@example.com"
+  }
+}
+```
+
+#### Verify OTP
+- **POST** `/otp/verify`
+- **Auth:** Required
+- **Description:** Verify OTP and mark email as verified
+- **Body:**
+```json
+{
+  "otp": "123456"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "data": {
+    "user": {
+      "id": "user_id",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "role": "USER",
+      "emailVerified": true
+    }
+  }
+}
+```
+
 ### User Management
 
 #### Get User Profile
 - **GET** `/users/profile`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Get current user's profile with usage and subscription info
 - **Response:**
 ```json
@@ -185,7 +235,7 @@ HTTP status codes:
 
 #### Update User Profile
 - **PUT** `/users/profile`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Update user profile information
 - **Body:**
 ```json
@@ -214,7 +264,7 @@ HTTP status codes:
 
 #### Change Password
 - **POST** `/users/change-password`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Change user password
 - **Body:**
 ```json
@@ -234,7 +284,7 @@ HTTP status codes:
 
 #### Get Account Summary
 - **GET** `/users/summary`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Get comprehensive account information
 - **Response:**
 ```json
@@ -548,7 +598,7 @@ curl -X GET /storage/files \
 
 #### Generate API Key
 - **POST** `/apikeys`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Generate a new API key pair. Automatically creates an isolated S3 storage folder at `apikeys/{accessKeyId}/` for complete storage separation.
 - **Body:**
 ```json
@@ -576,7 +626,7 @@ curl -X GET /storage/files \
 
 #### List API Keys
 - **GET** `/apikeys`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** List user's API keys (secrets hidden)
 - **Response:**
 ```json
@@ -600,7 +650,7 @@ curl -X GET /storage/files \
 
 #### Get API Key Details
 - **GET** `/apikeys/:id`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Get specific API key details
 - **Response:**
 ```json
@@ -622,7 +672,7 @@ curl -X GET /storage/files \
 
 #### Revoke API Key
 - **DELETE** `/apikeys/:id`
-- **Auth:** Required
+- **Auth:** Required + Email Verification Required
 - **Description:** Revoke an API key
 - **Response:**
 ```json

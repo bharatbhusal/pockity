@@ -6,11 +6,13 @@ import {
   getApiKeyController,
 } from "../controllers/apiKeyControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
+import { requireEmailVerification } from "../middleware/emailVerification";
 
 const router = Router();
 
-// All API key routes require authentication
+// All API key routes require authentication and email verification
 router.use(jwtAuth);
+router.use(requireEmailVerification);
 
 // POST /apikeys - Create new API key
 router.post("/", createApiKeyController);

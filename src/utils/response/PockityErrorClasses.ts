@@ -66,3 +66,9 @@ export class PockityErrorUnauthorized extends PockityBaseErrorClass {
     super({ message, httpStatusCode });
   }
 }
+
+export class PockityErrorForbidden extends PockityBaseErrorClass {
+  constructor({ message, httpStatusCode }: { message: string; httpStatusCode: number }) {
+    super({ message, httpStatusCode });
+  }
+}
