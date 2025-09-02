@@ -37,9 +37,10 @@ model User {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  apiKeys        ApiKey[]
-  otp            Otp?
-  apiKeyRequests ApiKeyRequest[]
+  apiKeys               ApiKey[]
+  otp                   Otp?
+  apiKeyRequests        ApiKeyRequest[]
+  apiKeyUpgradeRequests ApiKeyUpgradeRequest[]
 }
 
 //  ApiKey: many keys per user.
@@ -61,8 +62,9 @@ model ApiKey {
   revokedAt    DateTime?
   metadata     Json?
 
-  currentUsage UsageCurrent?
-  auditLogs    AuditLog[]
+  currentUsage    UsageCurrent?
+  auditLogs       AuditLog[]
+  upgradeRequests ApiKeyUpgradeRequest[]
 
   @@index([userId])
 }
@@ -121,6 +123,31 @@ model ApiKeyRequest {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
+  @@index([userId])
+  @@index([status])
+}
+
+// API Key Upgrade Request: Existing API key owners request storage/object limit increases
+// Admins can approve or reject these upgrade requests
+model ApiKeyUpgradeRequest {
+  id                    String              @id @default(cuid())
+  apiKeyId              String
+  apiKey                ApiKey              @relation(fields: [apiKeyId], references: [id])
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id])
+  currentStorage        BigInt // current storage limit in bytes
+  currentObjects        Int // current object limit
+  requestedStorage      BigInt // requested new storage limit in bytes
+  requestedObjects      Int // requested new object limit
+  reason                String? // user's justification for upgrade
+  status                ApiKeyRequestStatus @default(PENDING)
+  reviewerId            String? // admin who reviewed
+  reviewerComment       String? // admin's comment
+  reviewedAt            DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([apiKeyId])
   @@index([userId])
   @@index([status])
 }

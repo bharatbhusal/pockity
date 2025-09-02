@@ -4,3 +4,4 @@ export * from "./usageCurrentRepository";
 export * from "./auditLogRepository";
 export * from "./otpRepository";
 export * from "./apiKeyRequestRepository";
+export * from "./apiKeyUpgradeRequestRepository";

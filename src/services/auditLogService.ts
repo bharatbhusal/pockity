@@ -19,6 +19,8 @@ export const AUDIT_ACTIONS = {
   API_KEY_REQUEST_APPROVE: "API_KEY_REQUEST_APPROVE",
   API_KEY_REQUEST_REJECT: "API_KEY_REQUEST_REJECT",
   API_KEY_UPGRADE_REQUEST: "API_KEY_UPGRADE_REQUEST",
+  API_KEY_UPGRADE_APPROVE: "API_KEY_UPGRADE_APPROVE",
+  API_KEY_UPGRADE_REJECT: "API_KEY_UPGRADE_REJECT",
 
   // System events
   QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
@@ -38,8 +40,6 @@ interface AuditLogData {
   actorId?: string; // userId or adminId performing the action
   detail?: string;
   metadata?: Record<string, any>;
-  ipAddress?: string;
-  userAgent?: string;
 }
 
 export class AuditLogService {
@@ -55,8 +55,6 @@ export class AuditLogService {
         detail: data.detail,
         metadata: {
           ...data.metadata,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
           timestamp: new Date().toISOString(),
         },
       };
@@ -89,8 +87,6 @@ export class AuditLogService {
     data: {
       userId?: string;
       email: string;
-      ipAddress?: string;
-      userAgent?: string;
       failureReason?: string;
     },
   ): Promise<void> {
@@ -105,8 +101,6 @@ export class AuditLogService {
         email: data.email,
         failureReason: data.failureReason,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -116,8 +110,6 @@ export class AuditLogService {
   static async logUserRegister(data: {
     userId: string;
     email: string;
-    ipAddress?: string;
-    userAgent?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.USER_REGISTER,
@@ -126,8 +118,6 @@ export class AuditLogService {
       metadata: {
         email: data.email,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -138,8 +128,6 @@ export class AuditLogService {
     userId: string;
     actorId: string; // who made the change (could be user themselves or admin)
     changes: Record<string, any>;
-    ipAddress?: string;
-    userAgent?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.USER_UPDATE,
@@ -150,8 +138,6 @@ export class AuditLogService {
         changes: data.changes,
         selfUpdate: data.userId === data.actorId,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -161,8 +147,6 @@ export class AuditLogService {
   static async logUserDelete(data: {
     userId: string;
     actorId: string;
-    ipAddress?: string;
-    userAgent?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.USER_DELETE,
@@ -172,8 +156,6 @@ export class AuditLogService {
         targetUserId: data.userId,
         selfDelete: data.userId === data.actorId,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -183,8 +165,6 @@ export class AuditLogService {
   static async logEmailVerified(data: {
     userId: string;
     email: string;
-    ipAddress?: string;
-    userAgent?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.USER_EMAIL_VERIFIED,
@@ -193,8 +173,6 @@ export class AuditLogService {
       metadata: {
         email: data.email,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -209,8 +187,6 @@ export class AuditLogService {
       userId: string;
       actorId: string;
       keyName?: string;
-      ipAddress?: string;
-      userAgent?: string;
     },
   ): Promise<void> {
     await this.log({
@@ -223,8 +199,6 @@ export class AuditLogService {
         userId: data.userId,
         keyName: data.keyName,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 
@@ -237,7 +211,6 @@ export class AuditLogService {
     quotaType: "storage" | "objects";
     currentUsage: number;
     limit: number;
-    ipAddress?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.QUOTA_EXCEEDED,
@@ -249,7 +222,6 @@ export class AuditLogService {
         currentUsage: data.currentUsage,
         limit: data.limit,
       },
-      ipAddress: data.ipAddress,
     });
   }
 
@@ -262,8 +234,6 @@ export class AuditLogService {
     targetId?: string;
     details: string;
     metadata?: Record<string, any>;
-    ipAddress?: string;
-    userAgent?: string;
   }): Promise<void> {
     await this.log({
       action: AUDIT_ACTIONS.ADMIN_ACTION,
@@ -274,8 +244,6 @@ export class AuditLogService {
         targetId: data.targetId,
         ...data.metadata,
       },
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
     });
   }
 

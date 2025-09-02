@@ -4,7 +4,6 @@ import { AuthService } from "../services/authService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
 import { AuditLogService } from "../services/auditLogService";
-import { getAuditContext } from "../utils/auditHelpers";
 
 // Validation schemas
 const registerSchema = z.object({
@@ -31,7 +30,6 @@ export const registerController = async (req: Request, res: Response, next: Next
     }
 
     const { email, password, name } = validationResult.data;
-    const auditContext = getAuditContext(req);
 
     // Register user
     const authResponse = await AuthService.register({ email, password, name });
@@ -40,7 +38,6 @@ export const registerController = async (req: Request, res: Response, next: Next
     await AuditLogService.logUserRegister({
       userId: authResponse.user.id,
       email: authResponse.user.email,
-      ...auditContext,
     });
 
     res.status(201).json(
@@ -68,7 +65,6 @@ export const loginController = async (req: Request, res: Response, next: NextFun
     }
 
     const { email, password } = validationResult.data;
-    const auditContext = getAuditContext(req);
 
     try {
       // Login user
@@ -78,7 +74,6 @@ export const loginController = async (req: Request, res: Response, next: NextFun
       await AuditLogService.logUserAuth("USER_LOGIN", {
         userId: authResponse.user.id,
         email: authResponse.user.email,
-        ...auditContext,
       });
 
       res.status(200).json(
@@ -93,7 +88,6 @@ export const loginController = async (req: Request, res: Response, next: NextFun
       await AuditLogService.logUserAuth("USER_LOGIN_FAILED", {
         email,
         failureReason: loginError instanceof Error ? loginError.message : "Unknown error",
-        ...auditContext,
       });
 
       // Re-throw the error to be handled by the error handler

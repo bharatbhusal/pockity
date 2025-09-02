@@ -8,4 +8,12 @@ export const ApiKeyRepository = {
   update: (id: string, data: any) => prisma.apiKey.update({ where: { id }, data }),
   delete: (id: string) => prisma.apiKey.delete({ where: { id } }),
   list: () => prisma.apiKey.findMany(),
+  updateLimits: (id: string, limits: { totalStorage: bigint; totalObjects: number }) => 
+    prisma.apiKey.update({ 
+      where: { id }, 
+      data: { 
+        totalStorage: limits.totalStorage, 
+        totalObjects: limits.totalObjects 
+      } 
+    }),
 };
