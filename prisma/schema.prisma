@@ -32,6 +32,7 @@ model User {
 
   // Relations
   apiKeys ApiKey[]
+  otp     Otp?
 }
 
 //  ApiKey: many keys per user.
@@ -84,4 +85,12 @@ model AuditLog {
 
   @@index([apiAccessKeyId])
   @@index([action])
+}
+
+model Otp {
+  id     String   @id @default(cuid())
+  otp    String   @default(cuid())
+  expiry DateTime
+  userId String   @unique
+  user   User     @relation(fields: [userId], references: [id])
 }
