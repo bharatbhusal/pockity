@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
+import { send } from "process";
 
 const generateEmailHtml = (subject: string, text: string): string => {
   return `
@@ -41,6 +42,13 @@ export const EmailService = {
   async sendOtpEmail(to: string, otp: string): Promise<void> {
     const subject = "Email Verification - Pockity";
     const text = `Your email verification OTP is: ${otp}. This OTP will expire in 10 minutes.`;
+
+    await this.sendEmail(to, subject, text);
+  },
+
+  async sendKeyPairEmail(to: string, apiAccessKeyId: string, secretKey: string): Promise<void> {
+    const subject = "Your API Key Pair - Pockity";
+    const text = `Your API Access Key ID is: ${apiAccessKeyId}\nYour Secret Key is: ${secretKey}\n\nPlease keep these keys safe and do not share them with anyone. This is the only time you will see these keys.`;
 
     await this.sendEmail(to, subject, text);
   },

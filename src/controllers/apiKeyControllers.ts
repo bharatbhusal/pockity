@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import crypto from "crypto";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
-import { S3Service } from "../services/s3Service";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
   PockityErrorInvalidInput,
@@ -14,11 +13,7 @@ import { AuditLogService } from "../services/auditLogService";
 import { getAuditContext } from "../utils/auditHelpers";
 import { ApiKeyRequestRepository } from "../repositories/apiKeyRequestRepository";
 import { PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
-
-// Validation schemas
-const createApiKeySchema = z.object({
-  name: z.string().min(1, "API key name is required").max(255, "Name too long"),
-});
+import { EmailService } from "../services/emailService";
 
 const revokeApiKeySchema = z.object({
   id: z.string().min(1, "API key ID is required"),
@@ -36,74 +31,6 @@ const reviewApiKeyRequestSchema = z.object({
   approved: z.boolean(),
   reviewerComment: z.string().max(500, "Comment too long").optional(),
 });
-
-export const createApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Validate request body
-    const validationResult = createApiKeySchema.safeParse(req.body);
-    if (!validationResult.success) {
-      throw new PockityErrorInvalidInput({
-        message: "Invalid input data",
-        details: validationResult.error.errors,
-        httpStatusCode: 400,
-      });
-    }
-
-    const { name } = validationResult.data;
-    const auditContext = getAuditContext(req);
-
-    // Verify user exists
-
-    if (!req.user) {
-      throw new PockityErrorNotFound({
-        message: "User not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    // Generate API key pair
-    const apiAccessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
-    const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
-
-    // Hash the secret key before storing
-    const secretHash = await hashData(secretKey);
-
-    // Create API key in database
-    const apiKey = await ApiKeyRepository.create({
-      accessKeyId: apiAccessKeyId,
-      secretHash,
-      name,
-      userId: req.user.id,
-    });
-
-    // Log API key creation
-    await AuditLogService.logApiKeyEvent("API_KEY_CREATE", {
-      apiKeyId: apiKey.id,
-      apiAccessKeyId: apiKey.accessKeyId,
-      userId: req.user.id,
-      actorId: req.user.id,
-      keyName: name,
-      ...auditContext,
-    });
-
-    res.status(201).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key created successfully",
-        data: {
-          id: apiKey.id,
-          apiAccessKeyId: apiKey.accessKeyId,
-          secretKey, // Only shown once during creation
-          name: apiKey.name,
-          isActive: apiKey.isActive,
-          createdAt: apiKey.createdAt,
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const listApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -270,7 +197,7 @@ export const createApiKeyRequestController = async (req: Request, res: Response,
     }
 
     // Convert GB to bytes
-    const requestedStorage = BigInt(requestedStorageGB * 1024 * 1024 * 1024);
+    const requestedStorage = BigInt(Math.ceil(requestedStorageGB * 1024 * 1024 * 1024));
 
     // Create the request
     const apiKeyRequest = await ApiKeyRequestRepository.create({
@@ -458,6 +385,8 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
         totalStorage: apiKeyRequest.requestedStorage,
         totalObjects: apiKeyRequest.requestedObjects,
       });
+
+      await EmailService.sendKeyPairEmail(apiKeyRequest.user.email, apiAccessKeyId, secretKey);
 
       // Log API key creation
       await AuditLogService.logApiKeyEvent("API_KEY_CREATE", {
