@@ -8,7 +8,7 @@ const generateEmailHtml = (subject: string, text: string): string => {
       <p>${text}</p>
       <footer style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc;">
         <p>Best regards,</p>
-        <p>Donatuz Labs</p>
+        <p>Pockity - Storage as a Service</p>
         <p><a href="mailto:superadmin@bharatbhusal.com">superadmin@bharatbhusal.com</a></p>
       </footer>
     </div>
