@@ -143,6 +143,7 @@ export const changePasswordController = async (req: Request, res: Response, next
     // Update password
     await UserRepository.update(user.id, {
       passwordHash: newPasswordHash,
+      emailVerified: false,
     });
 
     res.status(200).json(

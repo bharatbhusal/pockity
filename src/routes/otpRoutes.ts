@@ -11,6 +11,6 @@ router.use(jwtAuth);
 router.post("/send", sendOtpController);
 
 // POST /otp/verify - Verify OTP and mark email as verified
-router.post("/verify", verifyOtpController);
+router.post("/verify/:otp", verifyOtpController);
 
 export { router as OtpRouter };

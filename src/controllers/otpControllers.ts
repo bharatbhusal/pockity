@@ -3,56 +3,35 @@ import { z } from "zod";
 import { OtpService } from "../services/otpService";
 import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { PockityErrorInvalidInput, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
-
-// Validation schemas
-const sendOtpSchema = z.object({
-  email: z.string().email("Invalid email format").optional(),
-});
+import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
 
 const verifyOtpSchema = z.object({
-  otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must contain only digits"),
+  otp: z
+    .string()
+    .length(6, "OTP must be 6 digits")
+    .regex(/^\d{6}$/, "OTP must contain only digits"),
 });
 
 // Send OTP to user's email
 export const sendOtpController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Validate request body
-    const validationResult = sendOtpSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      throw new PockityErrorInvalidInput({
-        message: "Invalid input data",
-        details: validationResult.error.errors,
-        httpStatusCode: 400,
-      });
-    }
-
-    const { email } = validationResult.data;
     const user = req.user;
-
-    // Use email from request body or user's current email
-    const targetEmail = email || user.email;
-
-    // If email is provided and different from user's current email, validate it's not taken
-    if (email && email !== user.email) {
-      const existingUser = await UserRepository.findByEmail(email);
-      if (existingUser && existingUser.id !== user.id) {
-        throw new PockityErrorBadRequest({
-          message: "Email is already taken by another user",
-          httpStatusCode: 409,
-        });
-      }
-    }
-
-    // Send OTP
-    await OtpService.sendOtp(user.id, targetEmail);
+    if (user.emailVerified) {
+      return res.status(400).json(
+        new PockityBaseResponse({
+          success: true,
+          message: "Email is already verified",
+          data: { email: user.email },
+        }),
+      );
+    } else await OtpService.sendOtp(user.id, user.email);
 
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
         message: "OTP sent successfully to your email",
         data: {
-          email: targetEmail,
+          email: user.email,
         },
       }),
     );
@@ -65,7 +44,7 @@ export const sendOtpController = async (req: Request, res: Response, next: NextF
 export const verifyOtpController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Validate request body
-    const validationResult = verifyOtpSchema.safeParse(req.body);
+    const validationResult = verifyOtpSchema.safeParse(req.params);
     if (!validationResult.success) {
       throw new PockityErrorInvalidInput({
         message: "Invalid input data",
