@@ -19,6 +19,12 @@ enum ApiKeyRequestStatus {
   REJECTED
 }
 
+enum ApiKeyUpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 //  MODELS
 
 //  Users: email/password or external providers.
@@ -37,9 +43,10 @@ model User {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  apiKeys        ApiKey[]
-  otp            Otp?
-  apiKeyRequests ApiKeyRequest[]
+  apiKeys             ApiKey[]
+  otp                 Otp?
+  apiKeyRequests      ApiKeyRequest[]
+  apiKeyUpgradeRequests ApiKeyUpgradeRequest[]
 }
 
 //  ApiKey: many keys per user.
@@ -61,8 +68,9 @@ model ApiKey {
   revokedAt    DateTime?
   metadata     Json?
 
-  currentUsage UsageCurrent?
-  auditLogs    AuditLog[]
+  currentUsage         UsageCurrent?
+  auditLogs            AuditLog[]
+  upgradeRequests      ApiKeyUpgradeRequest[]
 
   @@index([userId])
 }
@@ -122,5 +130,28 @@ model ApiKeyRequest {
   updatedAt        DateTime            @updatedAt
 
   @@index([userId])
+  @@index([status])
+}
+
+// API Key Upgrade Request: Users request to upgrade existing API key limits
+// Admins can approve or reject these upgrade requests
+model ApiKeyUpgradeRequest {
+  id               String                     @id @default(cuid())
+  apiKeyId         String
+  apiKey           ApiKey                     @relation(fields: [apiKeyId], references: [id])
+  userId           String
+  user             User                       @relation(fields: [userId], references: [id])
+  requestedStorage BigInt // in bytes
+  requestedObjects Int // max objects
+  reason           String? // user's justification
+  status           ApiKeyUpgradeRequestStatus @default(PENDING)
+  reviewerId       String? // admin who reviewed
+  reviewerComment  String? // admin's comment
+  reviewedAt       DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@index([userId])
+  @@index([apiKeyId])
   @@index([status])
 }

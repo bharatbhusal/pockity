@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { UserRepository, ApiKeyRepository, AuditLogRepository, ApiKeyRequestRepository } from "../repositories";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { AuditLogService } from "../services/auditLogService";
+import { AuditLogService, AUDIT_ACTIONS } from "../services/auditLogService";
 
 
 // Get overall system health and statistics
@@ -47,7 +47,7 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
     // Log admin access
     await AuditLogService.logAdminAction({
       adminId: admin.id,
-      action: "VIEW_SYSTEM_HEALTH",
+      action: AUDIT_ACTIONS.VIEW_SYSTEM_HEALTH,
       details: "Accessed system health dashboard",
       
     });
@@ -135,7 +135,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
     // Log admin access
     await AuditLogService.logAdminAction({
       adminId: admin.id,
-      action: "VIEW_USER_ANALYTICS",
+      action: AUDIT_ACTIONS.VIEW_USER_ANALYTICS,
       details: "Accessed user analytics dashboard",
       metadata: { limit, offset },
       
@@ -190,7 +190,7 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
     // Log admin access
     await AuditLogService.logAdminAction({
       adminId: admin.id,
-      action: "VIEW_AUDIT_LOGS",
+      action: AUDIT_ACTIONS.VIEW_AUDIT_LOGS,
       details: "Accessed system audit logs",
       metadata: { action, userId, limit, offset },
       
@@ -259,7 +259,7 @@ export const getApiKeyOverviewController = async (req: Request, res: Response, n
     // Log admin access
     await AuditLogService.logAdminAction({
       adminId: admin.id,
-      action: "VIEW_API_KEY_OVERVIEW",
+      action: AUDIT_ACTIONS.VIEW_API_KEY_OVERVIEW,
       details: "Accessed API key overview dashboard",
       
     });

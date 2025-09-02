@@ -1,6 +1,6 @@
 import { UsageCurrentRepository } from "../repositories/usageCurrentRepository";
 import { AuditLogRepository } from "../repositories/auditLogRepository";
-import { AuditLogService } from "./auditLogService";
+import { AuditLogService, AUDIT_ACTIONS } from "./auditLogService";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 
 export interface UsageStats {
@@ -115,7 +115,7 @@ export const UsageService = {
     // Log the action
     await AuditLogRepository.create({
       apiAccessKeyId,
-      action: "STORAGE_UPLOAD",
+      action: AUDIT_ACTIONS.STORAGE_UPLOAD,
       detail: `Uploaded file: ${fileName}`,
       metadata: {
         fileName,
@@ -144,7 +144,7 @@ export const UsageService = {
     // Log the action
     await AuditLogRepository.create({
       apiAccessKeyId,
-      action: "STORAGE_DELETE",
+      action: AUDIT_ACTIONS.STORAGE_DELETE,
       detail: `Deleted file: ${fileName}`,
       metadata: {
         fileName,
