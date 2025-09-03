@@ -208,7 +208,7 @@ export const createApiKeyCreateRequestController = async (req: Request, res: Res
       requestedObjects,
       reason,
     });
-
+    await EmailService.sendNewApiKeyRequestToAdmin(apiKeyRequest.id);
     // Log the request creation
     await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_CREATE, {
       userId: apiKeyRequest.userId,
@@ -275,6 +275,14 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
     if (!apiKey) {
       throw new PockityErrorBadRequest({ message: "API access key ID not found", httpStatusCode: 404 });
     }
+
+    if (apiKey.userId !== user.id) {
+      throw new PockityErrorBadRequest({
+        message: "You are not authorized to upgrade this API key",
+        httpStatusCode: 403,
+      });
+    }
+
     // Validate that requested limits are higher than current limits
     if (requestedStorage <= apiKey.totalStorage) {
       throw new PockityErrorBadRequest({
@@ -301,6 +309,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
       apiAccessKeyId,
     });
 
+    await EmailService.sendNewApiKeyRequestToAdmin(apiKeyRequest.id);
     // Log the request creation
     await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_CREATE, {
       apiAccessKeyId: apiKey.accessKeyId,
@@ -418,6 +427,54 @@ export const getAllApiKeyRequestsController = async (req: Request, res: Response
   }
 };
 
+// Get a specific API key request
+export const getApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+
+    const apiKeyRequest = await ApiKeyRequestRepository.findById(id);
+    if (!apiKeyRequest) {
+      throw new PockityErrorNotFound({
+        message: "API key request not found",
+        httpStatusCode: 404,
+      });
+    }
+
+    // Check if user owns the request (unless they're admin)
+    if (user.role !== "ADMIN" && apiKeyRequest.userId !== user.id) {
+      throw new PockityErrorUnauthorized({
+        message: "Unauthorized to view this request",
+        httpStatusCode: 403,
+      });
+    }
+
+    res.status(200).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "API key request retrieved successfully",
+        data: {
+          request: {
+            id: apiKeyRequest.id,
+            user: user.role === "ADMIN" ? apiKeyRequest.user : undefined,
+            requestedStorageGB: Number(apiKeyRequest.requestedStorage) / (1024 * 1024 * 1024),
+            requestedObjects: apiKeyRequest.requestedObjects,
+            reason: apiKeyRequest.reason,
+            status: apiKeyRequest.status,
+            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
+            requestType: apiKeyRequest.requestType,
+            reviewerComment: apiKeyRequest.reviewerComment,
+            reviewedAt: apiKeyRequest.reviewedAt,
+            createdAt: apiKeyRequest.createdAt,
+          },
+        },
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Admin: Approve or reject API key request
 export const reviewApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -510,6 +567,15 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
         });
       }
     } else {
+      if (apiKeyRequest.requestType === API_REQUEST_TYPE.CREATE) {
+        await EmailService.sendApiCreateRequestStatus(apiKeyRequest.user.email);
+      } else {
+        await EmailService.sendApiUpgradeRequestStatus(
+          apiKeyRequest.user.email,
+          apiKeyRequest.apiAccessKeyId!,
+          "rejected",
+        );
+      }
       // Log API key creation
       await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_REJECT, {
         apiAccessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
@@ -536,54 +602,6 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
             reviewerComment: updatedRequest.reviewerComment,
             reviewedAt: updatedRequest.reviewedAt,
             createdAt: updatedRequest.createdAt,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get a specific API key request
-export const getApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const user = req.user;
-
-    const apiKeyRequest = await ApiKeyRequestRepository.findById(id);
-    if (!apiKeyRequest) {
-      throw new PockityErrorNotFound({
-        message: "API key request not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    // Check if user owns the request (unless they're admin)
-    if (user.role !== "ADMIN" && apiKeyRequest.userId !== user.id) {
-      throw new PockityErrorUnauthorized({
-        message: "Unauthorized to view this request",
-        httpStatusCode: 403,
-      });
-    }
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key request retrieved successfully",
-        data: {
-          request: {
-            id: apiKeyRequest.id,
-            user: user.role === "ADMIN" ? apiKeyRequest.user : undefined,
-            requestedStorageGB: Number(apiKeyRequest.requestedStorage) / (1024 * 1024 * 1024),
-            requestedObjects: apiKeyRequest.requestedObjects,
-            reason: apiKeyRequest.reason,
-            status: apiKeyRequest.status,
-            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
-            requestType: apiKeyRequest.requestType,
-            reviewerComment: apiKeyRequest.reviewerComment,
-            reviewedAt: apiKeyRequest.reviewedAt,
-            createdAt: apiKeyRequest.createdAt,
           },
         },
       }),

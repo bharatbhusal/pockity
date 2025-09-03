@@ -73,9 +73,12 @@ export const EmailService = {
     await this.sendEmail(to, subject, text);
   },
 
-  async sendApiCreateRequestStatus(to: string, apiAccessKeyId: string, secretKey: string): Promise<void> {
+  async sendApiCreateRequestStatus(to: string, apiAccessKeyId?: string, secretKey?: string): Promise<void> {
     const subject = "Your API Key Pair - Pockity";
-    const text = `Your API Access Key ID is: ${apiAccessKeyId}\nYour Secret Key is: ${secretKey}\n\nPlease keep these keys safe and do not share them with anyone. This is the only time you will see these keys.`;
+    const text =
+      secretKey && apiAccessKeyId
+        ? `Your API Access Key ID is: ${apiAccessKeyId}\nYour Secret Key is: ${secretKey}\n\nPlease keep these keys safe and do not share them with anyone. This is the only time you will see these keys.`
+        : `Your request has been rejected. If you have any questions, please contact support.`;
 
     await this.sendEmail(to, subject, text);
   },
@@ -89,5 +92,12 @@ export const EmailService = {
     const text = `Your API Upgrade Request for API Access Key ID: ${apiAccessKeyId} has been ${status}.`;
 
     await this.sendEmail(to, subject, text);
+  },
+
+  async sendNewApiKeyRequestToAdmin(apiKeyRequestId: string): Promise<void> {
+    const subject = "New API Key Request - Pockity";
+    const text = `New API Key Request has been received.\nRequest ID is: ${apiKeyRequestId}.`;
+
+    await this.sendEmail("bharatbhusal78@gmail.com", subject, text);
   },
 };
