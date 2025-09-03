@@ -9,7 +9,7 @@ import {
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
 import { hashData } from "../utils/hash";
-import { API_REQUEST_TYPE, AuditAction, AuditLogService } from "../services/auditLogService";
+import { API_REQUEST_STATUS, API_REQUEST_TYPE, AuditAction, AuditLogService } from "../services/auditLogService";
 import { ApiKeyRequestRepository } from "../repositories/apiKeyRequestRepository";
 import { PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
 import { EmailService } from "../services/emailService";
@@ -45,7 +45,7 @@ export const listApiKeysController = async (req: Request, res: Response, next: N
     // Don't return secret hashes
     const sanitizedKeys = apiKeys.map((key: any) => ({
       id: key.id,
-      apiAccessKeyId: key.apiAccessKeyId,
+      apiAccessKeyId: key.accessKeyId,
       name: key.name,
       isActive: key.isActive,
       createdAt: key.createdAt,
@@ -188,7 +188,7 @@ export const createApiKeyCreateRequestController = async (req: Request, res: Res
 
     // Check if user already has a pending request
     const existingRequests = await ApiKeyRequestRepository.findByUserId(user.id);
-    const pendingRequest = existingRequests.find((request: any) => request.status === "PENDING");
+    const pendingRequest = existingRequests.find((request: any) => request.status === API_REQUEST_STATUS.PENDING);
 
     if (pendingRequest) {
       throw new PockityErrorBadRequest({
@@ -212,7 +212,7 @@ export const createApiKeyCreateRequestController = async (req: Request, res: Res
     // Log the request creation
     await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_CREATE, {
       userId: apiKeyRequest.userId,
-      actorId: user,
+      actorId: user.id,
       keyName,
       requestType: apiKeyRequest.requestType as API_REQUEST_TYPE,
     });
@@ -258,7 +258,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
 
     // Check if user already has a pending request
     const existingRequests = await ApiKeyRequestRepository.findByUserId(user.id);
-    const pendingRequest = existingRequests.find((request: any) => request.status === "PENDING");
+    const pendingRequest = existingRequests.find((request: any) => request.status === API_REQUEST_STATUS.PENDING);
 
     if (pendingRequest) {
       throw new PockityErrorBadRequest({
@@ -280,7 +280,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
       throw new PockityErrorBadRequest({
         message: "Requested storage must be higher than current storage limit",
         httpStatusCode: 400,
-        details: { current: apiKey.totalStorage, requested: requestedStorage },
+        details: { current: Number(apiKey.totalStorage), requested: Number(requestedStorage) },
       });
     }
 
@@ -445,7 +445,7 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
     }
 
     // Check if already reviewed
-    if (apiKeyRequest.status !== "PENDING") {
+    if (apiKeyRequest.status !== API_REQUEST_STATUS.PENDING) {
       throw new PockityErrorBadRequest({
         message: "This request has already been reviewed",
         httpStatusCode: 409,
@@ -454,11 +454,12 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
 
     // Update the request
     const updatedRequest = await ApiKeyRequestRepository.update(id, {
-      status: approved ? AuditAction.API_KEY_REQUEST_APPROVE : AuditAction.API_KEY_REQUEST_REJECT,
+      status: approved ? API_REQUEST_STATUS.APPROVED : API_REQUEST_STATUS.REJECTED,
       reviewerId: admin.id,
       reviewerComment,
       reviewedAt: new Date(),
     });
+    let newApiKey;
 
     if (approved) {
       if (apiKeyRequest.requestType === API_REQUEST_TYPE.CREATE) {
@@ -469,7 +470,7 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
         // Hash the secret key before storing
         const secretHash = await hashData(secretKey);
 
-        await ApiKeyRepository.create({
+        newApiKey = await ApiKeyRepository.create({
           accessKeyId: apiAccessKeyId,
           secretHash,
           name: apiKeyRequest.keyName,
@@ -531,6 +532,7 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
             requestedObjects: updatedRequest.requestedObjects,
             reason: updatedRequest.reason,
             status: updatedRequest.status,
+            apiAccessKeyId: apiKeyRequest.apiAccessKeyId || newApiKey?.accessKeyId || undefined,
             reviewerComment: updatedRequest.reviewerComment,
             reviewedAt: updatedRequest.reviewedAt,
             createdAt: updatedRequest.createdAt,
@@ -577,6 +579,8 @@ export const getApiKeyRequestController = async (req: Request, res: Response, ne
             requestedObjects: apiKeyRequest.requestedObjects,
             reason: apiKeyRequest.reason,
             status: apiKeyRequest.status,
+            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
+            requestType: apiKeyRequest.requestType,
             reviewerComment: apiKeyRequest.reviewerComment,
             reviewedAt: apiKeyRequest.reviewedAt,
             createdAt: apiKeyRequest.createdAt,

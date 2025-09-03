@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { UserRepository, ApiKeyRepository, AuditLogRepository, ApiKeyRequestRepository } from "../repositories";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { AuditAction, AuditLogService } from "../services/auditLogService";
+import { API_REQUEST_STATUS, AuditAction, AuditLogService } from "../services/auditLogService";
 
 // Get overall system health and statistics
 export const getSystemHealthController = async (req: Request, res: Response, next: NextFunction) => {
@@ -38,9 +38,9 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
     const recentAuditLogs = auditLogs.filter((log: any) => new Date(log.createdAt) > sevenDaysAgo);
 
     // API key request statistics
-    const pendingRequests = apiKeyRequests.filter((req: any) => req.status === "PENDING").length;
-    const approvedRequests = apiKeyRequests.filter((req: any) => req.status === "APPROVED").length;
-    const rejectedRequests = apiKeyRequests.filter((req: any) => req.status === "REJECTED").length;
+    const pendingRequests = apiKeyRequests.filter((req: any) => req.status === API_REQUEST_STATUS.PENDING).length;
+    const approvedRequests = apiKeyRequests.filter((req: any) => req.status === API_REQUEST_STATUS.APPROVED).length;
+    const rejectedRequests = apiKeyRequests.filter((req: any) => req.status === API_REQUEST_STATUS.REJECTED).length;
 
     // Log admin access
     await AuditLogService.logAdminAction({
@@ -120,9 +120,9 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
             },
             requests: {
               total: userRequests.length,
-              pending: userRequests.filter((req: any) => req.status === "PENDING").length,
-              approved: userRequests.filter((req: any) => req.status === "APPROVED").length,
-              rejected: userRequests.filter((req: any) => req.status === "REJECTED").length,
+              pending: userRequests.filter((req: any) => req.status === API_REQUEST_STATUS.PENDING).length,
+              approved: userRequests.filter((req: any) => req.status === API_REQUEST_STATUS.APPROVED).length,
+              rejected: userRequests.filter((req: any) => req.status === API_REQUEST_STATUS.REJECTED).length,
             },
           },
         };

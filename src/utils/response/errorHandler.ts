@@ -23,6 +23,7 @@ export const errorHandler: ErrorRequestHandler = (err: Error, req: Request, res:
     return;
   }
 
+  console.log(err);
   // Handle unexpected errors with generic 500 response
   res.status(500).json({
     error: {

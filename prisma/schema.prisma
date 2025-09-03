@@ -53,9 +53,9 @@ model ApiKey {
   revokedAt    DateTime?
   metadata     Json?
 
-  currentUsage  UsageCurrent?
-  auditLogs     AuditLog[]
-  apiKeyRequest ApiKeyRequest[]
+  currentUsage UsageCurrent?
+  auditLogs    AuditLog[]
+  // apiKeyRequest ApiKeyRequest[]
 
   @@index([userId])
 }
@@ -98,7 +98,7 @@ model ApiKeyRequest {
   requestType      ApiKeyRequestType   @default(CREATE)
   keyName          String?
   apiAccessKeyId   String?
-  apiAccessKey     ApiKey?             @relation(fields: [apiAccessKeyId], references: [id])
+  // apiAccessKey     ApiKey?             @relation(fields: [apiAccessKeyId], references: [accessKeyId])
   requestedStorage BigInt
   requestedObjects Int
   reason           String?
