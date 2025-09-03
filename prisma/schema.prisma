@@ -7,10 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ENUMS
 enum Role {
   USER
   ADMIN
+}
+
+enum ApiKeyRequestType {
+  CREATE
+  UPGRADE
 }
 
 enum ApiKeyRequestStatus {
@@ -19,19 +23,6 @@ enum ApiKeyRequestStatus {
   REJECTED
 }
 
-enum ApiKeyUpgradeRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-//  MODELS
-
-//  Users: email/password or external providers.
-//  - passwordHash: for traditional auth
-//  - emailVerified: boolean
-//  - provider fields handled via ProviderAccount
-//  - role to allow admin operations (approvals)
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -42,17 +33,11 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
-  apiKeys             ApiKey[]
-  otp                 Otp?
-  apiKeyRequests      ApiKeyRequest[]
-  apiKeyUpgradeRequests ApiKeyUpgradeRequest[]
+  apiKeys        ApiKey[]
+  otp            Otp?
+  apiKeyRequests ApiKeyRequest[]
 }
 
-//  ApiKey: many keys per user.
-//  - Each key can be assigned a tier independently.
-//  - secretHash stored (hash of secret). Show secret only when created.
-// - metadata JSON for custom policies/scopes
 model ApiKey {
   id           String    @id @default(cuid())
   accessKeyId  String    @unique
@@ -68,18 +53,13 @@ model ApiKey {
   revokedAt    DateTime?
   metadata     Json?
 
-  currentUsage         UsageCurrent?
-  auditLogs            AuditLog[]
-  upgradeRequests      ApiKeyUpgradeRequest[]
+  currentUsage  UsageCurrent?
+  auditLogs     AuditLog[]
+  apiKeyRequest ApiKeyRequest[]
 
   @@index([userId])
 }
 
-//  UsageCurrent: a single row per user for current usage (fast increment/decrement)
-//  - bytesUsed: BigInt
-//  - objects: Int
-//  - lastUpdated: timestamp of last change
-//  - This acts as a fast counter. Snapshots (UsageSnapshot) provide history.
 model UsageCurrent {
   id             String   @id @default(cuid())
   apiAccessKeyId String   @unique
@@ -89,14 +69,13 @@ model UsageCurrent {
   lastUpdated    DateTime @default(now())
 }
 
-//  AuditLog: immutable logs for important actions (apikey create/revoke, tier requests, payments)
 model AuditLog {
   id             String   @id @default(cuid())
   apiAccessKeyId String?
   apiAccessKey   ApiKey?  @relation(fields: [apiAccessKeyId], references: [accessKeyId])
-  actorId        String? // admin or system actor id (nullable)
-  action         String // short action key, e.g., 'APIKEY_CREATE', 'TIER_APPROVE'
-  detail         String? // human readable detail
+  actorId        String?
+  action         String
+  detail         String?
   metadata       Json?
   createdAt      DateTime @default(now())
 
@@ -112,46 +91,24 @@ model Otp {
   user   User     @relation(fields: [userId], references: [id])
 }
 
-// API Key Request: Users request specific storage/quotas before getting API keys
-// Admins can approve or reject these requests
 model ApiKeyRequest {
   id               String              @id @default(cuid())
   userId           String
   user             User                @relation(fields: [userId], references: [id])
+  requestType      ApiKeyRequestType   @default(CREATE)
   keyName          String?
-  requestedStorage BigInt // in bytes
-  requestedObjects Int // max objects
-  reason           String? // user's justification
+  apiAccessKeyId   String?
+  apiAccessKey     ApiKey?             @relation(fields: [apiAccessKeyId], references: [id])
+  requestedStorage BigInt
+  requestedObjects Int
+  reason           String?
   status           ApiKeyRequestStatus @default(PENDING)
-  reviewerId       String? // admin who reviewed
-  reviewerComment  String? // admin's comment
+  reviewerId       String?
+  reviewerComment  String?
   reviewedAt       DateTime?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
   @@index([userId])
-  @@index([status])
-}
-
-// API Key Upgrade Request: Users request to upgrade existing API key limits
-// Admins can approve or reject these upgrade requests
-model ApiKeyUpgradeRequest {
-  id               String                     @id @default(cuid())
-  apiKeyId         String
-  apiKey           ApiKey                     @relation(fields: [apiKeyId], references: [id])
-  userId           String
-  user             User                       @relation(fields: [userId], references: [id])
-  requestedStorage BigInt // in bytes
-  requestedObjects Int // max objects
-  reason           String? // user's justification
-  status           ApiKeyUpgradeRequestStatus @default(PENDING)
-  reviewerId       String? // admin who reviewed
-  reviewerComment  String? // admin's comment
-  reviewedAt       DateTime?
-  createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
-
-  @@index([userId])
-  @@index([apiKeyId])
   @@index([status])
 }

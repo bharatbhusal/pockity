@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AuthService } from "../services/authService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
-import { AuditLogService } from "../services/auditLogService";
+import { AuditAction, AuditLogService } from "../services/auditLogService";
 
 // Validation schemas
 const registerSchema = z.object({
@@ -35,7 +35,7 @@ export const registerController = async (req: Request, res: Response, next: Next
     const authResponse = await AuthService.register({ email, password, name });
 
     // Log successful registration
-    await AuditLogService.logUserRegister({
+    await AuditLogService.logUserAuth(AuditAction.USER_REGISTER, {
       userId: authResponse.user.id,
       email: authResponse.user.email,
     });
@@ -66,33 +66,22 @@ export const loginController = async (req: Request, res: Response, next: NextFun
 
     const { email, password } = validationResult.data;
 
-    try {
-      // Login user
-      const authResponse = await AuthService.login({ email, password });
+    // Login user
+    const authResponse = await AuthService.login({ email, password });
 
-      // Log successful login
-      await AuditLogService.logUserAuth("USER_LOGIN", {
-        userId: authResponse.user.id,
-        email: authResponse.user.email,
-      });
+    // Log successful login
+    await AuditLogService.logUserAuth(AuditAction.USER_LOGIN, {
+      userId: authResponse.user.id,
+      email: authResponse.user.email,
+    });
 
-      res.status(200).json(
-        new PockityBaseResponse({
-          success: true,
-          message: "Login successful",
-          data: authResponse,
-        }),
-      );
-    } catch (loginError) {
-      // Log failed login attempt
-      await AuditLogService.logUserAuth("USER_LOGIN_FAILED", {
-        email,
-        failureReason: loginError instanceof Error ? loginError.message : "Unknown error",
-      });
-
-      // Re-throw the error to be handled by the error handler
-      throw loginError;
-    }
+    res.status(200).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "Login successful",
+        data: authResponse,
+      }),
+    );
   } catch (error) {
     next(error);
   }

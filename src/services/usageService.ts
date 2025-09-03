@@ -1,6 +1,6 @@
 import { UsageCurrentRepository } from "../repositories/usageCurrentRepository";
 import { AuditLogRepository } from "../repositories/auditLogRepository";
-import { AuditLogService, AUDIT_ACTIONS } from "./auditLogService";
+import { AuditAction, AuditLogService } from "./auditLogService";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 
 export interface UsageStats {
@@ -46,7 +46,7 @@ export const UsageService = {
   async checkQuotaLimits(apiAccessKeyId: string, fileSizeBytes: number): Promise<QuotaLimits> {
     // Get current usage
     const currentUsage = await this.getCurrentUsage(apiAccessKeyId);
-    const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
+    const apiKey = await ApiKeyRepository.findByAccessKeyId(apiAccessKeyId);
 
     // Default to a basic free tier if no subscription
     let maxBytes = apiKey?.totalStorage || BigInt(1024 * 1024 * 1024); // 1GB default
@@ -63,7 +63,7 @@ export const UsageService = {
     if (quotaExceeded) {
       try {
         // Get the API key to find the user
-        const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
+        const apiKey = await ApiKeyRepository.findByAccessKeyId(apiAccessKeyId);
         if (apiKey) {
           if (bytesExceeded) {
             await AuditLogService.logQuotaExceeded({
@@ -115,7 +115,7 @@ export const UsageService = {
     // Log the action
     await AuditLogRepository.create({
       apiAccessKeyId,
-      action: AUDIT_ACTIONS.STORAGE_UPLOAD,
+      action: AuditAction.STORAGE_UPLOAD,
       detail: `Uploaded file: ${fileName}`,
       metadata: {
         fileName,
@@ -144,7 +144,7 @@ export const UsageService = {
     // Log the action
     await AuditLogRepository.create({
       apiAccessKeyId,
-      action: AUDIT_ACTIONS.STORAGE_DELETE,
+      action: AuditAction.STORAGE_DELETE,
       detail: `Deleted file: ${fileName}`,
       metadata: {
         fileName,

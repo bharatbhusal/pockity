@@ -1,14 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { UserRepository, ApiKeyRepository, AuditLogRepository, ApiKeyRequestRepository } from "../repositories";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { AuditLogService, AUDIT_ACTIONS } from "../services/auditLogService";
-
+import { AuditAction, AuditLogService } from "../services/auditLogService";
 
 // Get overall system health and statistics
 export const getSystemHealthController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    
 
     // Get basic system statistics
     const [users, apiKeys, auditLogs, apiKeyRequests] = await Promise.all([
@@ -47,9 +45,8 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
     // Log admin access
     await AuditLogService.logAdminAction({
       adminId: admin.id,
-      action: AUDIT_ACTIONS.VIEW_SYSTEM_HEALTH,
+      action: AuditAction.VIEW_SYSTEM_HEALTH,
       details: "Accessed system health dashboard",
-      
     });
 
     res.status(200).json(
@@ -97,7 +94,7 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
 export const getUserAnalyticsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    
+
     const { limit = 50, offset = 0 } = req.query;
 
     const users = await UserRepository.list();
@@ -132,15 +129,6 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
       }),
     );
 
-    // Log admin access
-    await AuditLogService.logAdminAction({
-      adminId: admin.id,
-      action: AUDIT_ACTIONS.VIEW_USER_ANALYTICS,
-      details: "Accessed user analytics dashboard",
-      metadata: { limit, offset },
-      
-    });
-
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
@@ -164,7 +152,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
 export const getSystemAuditLogsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    
+
     const { action, userId, limit = 100, offset = 0 } = req.query;
 
     // Get audit logs (in a real implementation, you'd add filtering to the repository)
@@ -186,15 +174,6 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
 
     // Paginate
     const paginatedLogs = filteredLogs.slice(Number(offset), Number(offset) + Number(limit));
-
-    // Log admin access
-    await AuditLogService.logAdminAction({
-      adminId: admin.id,
-      action: AUDIT_ACTIONS.VIEW_AUDIT_LOGS,
-      details: "Accessed system audit logs",
-      metadata: { action, userId, limit, offset },
-      
-    });
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -223,7 +202,6 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
 export const getApiKeyOverviewController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = req.adminUser;
-    
 
     const apiKeys = await ApiKeyRepository.list();
 
@@ -255,14 +233,6 @@ export const getApiKeyOverviewController = async (req: Request, res: Response, n
     }
 
     const overview = Array.from(apiKeysByUser.values());
-
-    // Log admin access
-    await AuditLogService.logAdminAction({
-      adminId: admin.id,
-      action: AUDIT_ACTIONS.VIEW_API_KEY_OVERVIEW,
-      details: "Accessed API key overview dashboard",
-      
-    });
 
     res.status(200).json(
       new PockityBaseResponse({

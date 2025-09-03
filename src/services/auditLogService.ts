@@ -1,43 +1,36 @@
 import { AuditLogRepository } from "../repositories/auditLogRepository";
 import { logger } from "../utils/logger";
 
-// Audit log action types for critical events
-export const AUDIT_ACTIONS = {
-  // User management events
-  USER_REGISTER: "USER_REGISTER",
-  USER_LOGIN: "USER_LOGIN",
-  USER_LOGIN_FAILED: "USER_LOGIN_FAILED",
-  USER_UPDATE: "USER_UPDATE",
-  USER_DELETE: "USER_DELETE",
-  USER_EMAIL_VERIFIED: "USER_EMAIL_VERIFIED",
+export enum API_REQUEST_TYPE {
+  CREATE = "CREATE",
+  UPGRADE = "UPGRADE",
+}
 
-  // API key management events
-  API_KEY_CREATE: "API_KEY_CREATE",
-  API_KEY_DELETE: "API_KEY_DELETE",
-  API_KEY_REVOKE: "API_KEY_REVOKE",
-  API_KEY_LIMITS_UPDATE: "API_KEY_LIMITS_UPDATE",
-  API_KEY_REQUEST_CREATE: "API_KEY_REQUEST_CREATE",
-  API_KEY_REQUEST_APPROVE: "API_KEY_REQUEST_APPROVE",
-  API_KEY_REQUEST_REJECT: "API_KEY_REQUEST_REJECT",
-  API_KEY_UPGRADE_REQUEST: "API_KEY_UPGRADE_REQUEST",
-  API_KEY_UPGRADE_APPROVE: "API_KEY_UPGRADE_APPROVE",
-  API_KEY_UPGRADE_REJECT: "API_KEY_UPGRADE_REJECT",
+export enum AuditAction {
+  USER_REGISTER = "USER_REGISTER",
+  USER_REGISTER_FAILED = "USER_REGISTER_FAILED",
 
-  // System events
-  QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
-  STORAGE_UPLOAD: "STORAGE_UPLOAD",
-  STORAGE_DELETE: "STORAGE_DELETE",
+  USER_LOGIN = "USER_LOGIN",
+  USER_LOGIN_FAILED = "USER_LOGIN_FAILED",
 
-  // Admin events
-  ADMIN_ACTION: "ADMIN_ACTION",
-  SYSTEM_EVENT: "SYSTEM_EVENT",
-  VIEW_SYSTEM_HEALTH: "VIEW_SYSTEM_HEALTH",
-  VIEW_USER_ANALYTICS: "VIEW_USER_ANALYTICS", 
-  VIEW_AUDIT_LOGS: "VIEW_AUDIT_LOGS",
-  VIEW_API_KEY_OVERVIEW: "VIEW_API_KEY_OVERVIEW",
-} as const;
+  USER_UPDATE = "USER_UPDATE",
+  USER_DELETE = "USER_DELETE",
+  USER_EMAIL_VERIFIED = "USER_EMAIL_VERIFIED",
 
-export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+  API_KEY_REQUEST_CREATE = "API_KEY_REQUEST_CREATE",
+  API_KEY_REQUEST_APPROVE = "API_KEY_REQUEST_APPROVE",
+  API_KEY_REQUEST_REJECT = "API_KEY_REQUEST_REJECT",
+
+  API_KEY_REVOKE = "API_KEY_REVOKE",
+
+  QUOTA_EXCEEDED = "QUOTA_EXCEEDED",
+  STORAGE_UPLOAD = "STORAGE_UPLOAD",
+  STORAGE_DELETE = "STORAGE_DELETE",
+
+  ADMIN_ACTION = "ADMIN_ACTION",
+  SYSTEM_EVENT = "SYSTEM_EVENT",
+  VIEW_SYSTEM_HEALTH = "VIEW_SYSTEM_HEALTH",
+}
 
 interface AuditLogData {
   action: AuditAction;
@@ -86,9 +79,6 @@ export class AuditLogService {
         message: "Failed to create audit log entry",
         obj: { error, auditData: data },
       });
-
-      // In production, you might want to send this to a monitoring service
-      console.error("AUDIT LOG FAILURE:", error);
     }
   }
 
@@ -99,7 +89,11 @@ export class AuditLogService {
    * @returns Promise that resolves when the log is created
    */
   static async logUserAuth(
-    action: "USER_LOGIN" | "USER_LOGIN_FAILED",
+    action:
+      | AuditAction.USER_LOGIN
+      | AuditAction.USER_LOGIN_FAILED
+      | AuditAction.USER_REGISTER
+      | AuditAction.USER_REGISTER_FAILED,
     data: {
       userId?: string;
       email: string;
@@ -109,33 +103,10 @@ export class AuditLogService {
     await this.log({
       action,
       actorId: data.userId,
-      detail:
-        action === "USER_LOGIN"
-          ? `User ${data.email} logged in successfully`
-          : `Failed login attempt for ${data.email}: ${data.failureReason}`,
+      detail: `Authentication event for ${data.email}`,
       metadata: {
         email: data.email,
         failureReason: data.failureReason,
-      },
-    });
-  }
-
-  /**
-   * Log user registration events
-   * Records when new users successfully register for the platform
-   * @param data - Registration event data including user ID and email
-   * @returns Promise that resolves when the log is created
-   */
-  static async logUserRegister(data: {
-    userId: string;
-    email: string;
-  }): Promise<void> {
-    await this.log({
-      action: AUDIT_ACTIONS.USER_REGISTER,
-      actorId: data.userId,
-      detail: `New user registered: ${data.email}`,
-      metadata: {
-        email: data.email,
       },
     });
   }
@@ -152,7 +123,7 @@ export class AuditLogService {
     changes: Record<string, any>;
   }): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS.USER_UPDATE,
+      action: AuditAction.USER_UPDATE,
       actorId: data.actorId,
       detail: `User profile updated for user ${data.userId}`,
       metadata: {
@@ -166,12 +137,9 @@ export class AuditLogService {
   /**
    * Log user account deletion
    */
-  static async logUserDelete(data: {
-    userId: string;
-    actorId: string;
-  }): Promise<void> {
+  static async logUserDelete(data: { userId: string; actorId: string }): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS.USER_DELETE,
+      action: AuditAction.USER_DELETE,
       actorId: data.actorId,
       detail: `User account deleted: ${data.userId}`,
       metadata: {
@@ -184,12 +152,9 @@ export class AuditLogService {
   /**
    * Log email verification events
    */
-  static async logEmailVerified(data: {
-    userId: string;
-    email: string;
-  }): Promise<void> {
+  static async logEmailVerified(data: { userId: string; email: string }): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS.USER_EMAIL_VERIFIED,
+      action: AuditAction.USER_EMAIL_VERIFIED,
       actorId: data.userId,
       detail: `Email verified for user: ${data.email}`,
       metadata: {
@@ -206,24 +171,28 @@ export class AuditLogService {
    * @returns Promise that resolves when the log is created
    */
   static async logApiKeyEvent(
-    action: "API_KEY_CREATE" | "API_KEY_DELETE" | "API_KEY_REVOKE",
+    action:
+      | AuditAction.API_KEY_REQUEST_CREATE
+      | AuditAction.API_KEY_REQUEST_APPROVE
+      | AuditAction.API_KEY_REQUEST_REJECT
+      | AuditAction.API_KEY_REVOKE,
     data: {
-      apiKeyId: string;
-      apiAccessKeyId: string;
+      apiAccessKeyId?: string;
       userId: string;
       actorId: string;
       keyName?: string;
+      requestType?: API_REQUEST_TYPE;
     },
   ): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS[action],
+      action,
       apiAccessKeyId: data.apiAccessKeyId,
       actorId: data.actorId,
-      detail: `API key ${action.toLowerCase().replace("_", " ")}: ${data.keyName || data.apiKeyId}`,
+      detail: `API key ${action.toLowerCase().replace("_", " ")}: ${data.keyName || data.apiAccessKeyId}`,
       metadata: {
-        apiKeyId: data.apiKeyId,
         userId: data.userId,
-        keyName: data.keyName,
+        keyName: data.keyName || undefined,
+        requestType: data.requestType || undefined,
       },
     });
   }
@@ -242,7 +211,7 @@ export class AuditLogService {
     limit: number;
   }): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS.QUOTA_EXCEEDED,
+      action: AuditAction.QUOTA_EXCEEDED,
       apiAccessKeyId: data.apiAccessKeyId,
       actorId: data.userId,
       detail: `Quota exceeded: ${data.quotaType} usage ${data.currentUsage} exceeds limit ${data.limit}`,
@@ -268,7 +237,7 @@ export class AuditLogService {
     metadata?: Record<string, any>;
   }): Promise<void> {
     await this.log({
-      action: AUDIT_ACTIONS.ADMIN_ACTION,
+      action: AuditAction.ADMIN_ACTION,
       actorId: data.adminId,
       detail: `Admin action: ${data.action} - ${data.details}`,
       metadata: {
@@ -277,24 +246,5 @@ export class AuditLogService {
         ...data.metadata,
       },
     });
-  }
-
-  /**
-   * Get audit logs with filtering options
-   * Retrieves audit logs from the database with optional filtering
-   * @param filters - Optional filters for action, API key, actor, date range, and limit
-   * @returns Promise that resolves to filtered audit logs
-   */
-  static async getAuditLogs(filters?: {
-    action?: AuditAction;
-    apiAccessKeyId?: string;
-    actorId?: string;
-    startDate?: Date;
-    endDate?: Date;
-    limit?: number;
-  }) {
-    // This will be implemented based on repository capabilities
-    // For now, return basic logs
-    return await AuditLogRepository.list();
   }
 }

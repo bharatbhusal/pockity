@@ -9,10 +9,8 @@ import {
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
 import { hashData } from "../utils/hash";
-import { AuditLogService, AUDIT_ACTIONS } from "../services/auditLogService";
-import { getAuditContext } from "../utils/auditHelpers";
+import { API_REQUEST_TYPE, AuditAction, AuditLogService } from "../services/auditLogService";
 import { ApiKeyRequestRepository } from "../repositories/apiKeyRequestRepository";
-import { ApiKeyUpgradeRequestRepository } from "../repositories/apiKeyUpgradeRequestRepository";
 import { PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
 import { EmailService } from "../services/emailService";
 
@@ -21,8 +19,14 @@ const revokeApiKeySchema = z.object({
 });
 
 // Validation schemas
-const createApiKeyRequestSchema = z.object({
+const createApiKeyCreateRequestSchema = z.object({
   keyName: z.string().min(1, "API key name is required").max(255, "Name too long"),
+  requestedStorageGB: z.number().positive().max(1000, "Maximum 1000GB allowed"),
+  requestedObjects: z.number().positive().max(1000000, "Maximum 1M objects allowed"),
+  reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)").max(500, "Reason too long"),
+});
+const createApiKeyUpgradeRequestSchema = z.object({
+  apiAccessKeyId: z.string().min(1, "API access key ID is required"),
   requestedStorageGB: z.number().positive().max(1000, "Maximum 1000GB allowed"),
   requestedObjects: z.number().positive().max(1000000, "Maximum 1M objects allowed"),
   reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)").max(500, "Reason too long"),
@@ -31,26 +35,6 @@ const createApiKeyRequestSchema = z.object({
 const reviewApiKeyRequestSchema = z.object({
   approved: z.boolean(),
   reviewerComment: z.string().max(500, "Comment too long").optional(),
-});
-
-// Schema for creating API key upgrade requests
-const createApiKeyUpgradeRequestSchema = z.object({
-  apiKeyId: z.string().min(1, "API key ID is required"),
-  requestedStorageGB: z.number().positive().max(1000, "Maximum 1000GB allowed"),
-  requestedObjects: z.number().positive().max(1000000, "Maximum 1M objects allowed"),
-  reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)").max(500, "Reason too long"),
-});
-
-// Schema for reviewing API key upgrade requests
-const reviewApiKeyUpgradeRequestSchema = z.object({
-  approved: z.boolean(),
-  reviewerComment: z.string().max(500, "Comment too long").optional(),
-});
-
-// Schema for updating API key limits (admin only)
-const updateApiKeyLimitsSchema = z.object({
-  totalStorage: z.number().positive().max(1000 * 1024 * 1024 * 1024, "Maximum 1000GB allowed"), // in bytes
-  totalObjects: z.number().positive().max(1000000, "Maximum 1M objects allowed"),
 });
 
 export const listApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
@@ -94,7 +78,6 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     }
 
     const { id } = validationResult.data;
-    const auditContext = getAuditContext(req);
 
     // Find the API key
     const apiKey = await ApiKeyRepository.findById(id);
@@ -120,13 +103,11 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
     });
 
     // Log API key revocation
-    await AuditLogService.logApiKeyEvent("API_KEY_REVOKE", {
-      apiKeyId: revokedKey.id,
+    await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REVOKE, {
       apiAccessKeyId: revokedKey.accessKeyId,
-      userId: req.user.id,
+      userId: apiKey.userId,
       actorId: req.user.id,
       keyName: revokedKey.name || undefined,
-      ...auditContext,
     });
 
     res.status(200).json(
@@ -190,10 +171,10 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
 };
 
 // Create a new API key request
-export const createApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
+export const createApiKeyCreateRequestController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Validate request body
-    const validationResult = createApiKeyRequestSchema.safeParse(req.body);
+    const validationResult = createApiKeyCreateRequestSchema.safeParse(req.body);
     if (!validationResult.success) {
       throw new PockityErrorInvalidInput({
         message: "Invalid request data",
@@ -204,7 +185,6 @@ export const createApiKeyRequestController = async (req: Request, res: Response,
 
     const { requestedStorageGB, requestedObjects, reason, keyName } = validationResult.data;
     const user = req.user;
-    const auditContext = getAuditContext(req);
 
     // Check if user already has a pending request
     const existingRequests = await ApiKeyRequestRepository.findByUserId(user.id);
@@ -227,32 +207,117 @@ export const createApiKeyRequestController = async (req: Request, res: Response,
       requestedStorage,
       requestedObjects,
       reason,
-      status: "PENDING",
     });
 
     // Log the request creation
-    await AuditLogService.log({
-      action: AUDIT_ACTIONS.API_KEY_REQUEST_CREATE,
-      actorId: user.id,
-      detail: `User requested API key with ${requestedStorageGB}GB storage and ${requestedObjects} objects`,
-      metadata: {
-        requestId: apiKeyRequest.id,
-        requestedStorageGB,
-        requestedObjects,
-        reason,
-        keyName,
-      },
-      ...auditContext,
+    await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_CREATE, {
+      userId: apiKeyRequest.userId,
+      actorId: user,
+      keyName,
+      requestType: apiKeyRequest.requestType as API_REQUEST_TYPE,
     });
 
     res.status(201).json(
       new PockityBaseResponse({
         success: true,
-        message: "API key request submitted successfully. Admin will review your request.",
+        message: "API key create request submitted successfully. Admin will review your request.",
         data: {
           request: {
             id: apiKeyRequest.id,
             keyName: apiKeyRequest.keyName,
+            requestType: apiKeyRequest.requestType,
+            requestedStorageGB,
+            requestedObjects,
+            reason: apiKeyRequest.reason,
+            status: apiKeyRequest.status,
+            createdAt: apiKeyRequest.createdAt,
+          },
+        },
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create a new API key request
+export const createApiKeyUpgradeRequestController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Validate request body
+    const validationResult = createApiKeyUpgradeRequestSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      throw new PockityErrorInvalidInput({
+        message: "Invalid request data",
+        details: validationResult.error.errors,
+        httpStatusCode: 400,
+      });
+    }
+
+    const { requestedStorageGB, requestedObjects, reason, apiAccessKeyId } = validationResult.data;
+    const user = req.user;
+
+    // Check if user already has a pending request
+    const existingRequests = await ApiKeyRequestRepository.findByUserId(user.id);
+    const pendingRequest = existingRequests.find((request: any) => request.status === "PENDING");
+
+    if (pendingRequest) {
+      throw new PockityErrorBadRequest({
+        message: "You already have a pending API key request. Please wait for admin review.",
+        httpStatusCode: 409,
+      });
+    }
+
+    // Convert GB to bytes
+    const requestedStorage = BigInt(Math.ceil(requestedStorageGB * 1024 * 1024 * 1024));
+
+    // Create the request
+    const apiKey = await ApiKeyRepository.findByAccessKeyId(apiAccessKeyId);
+    if (!apiKey) {
+      throw new PockityErrorBadRequest({ message: "API access key ID not found", httpStatusCode: 404 });
+    }
+    // Validate that requested limits are higher than current limits
+    if (requestedStorage <= apiKey.totalStorage) {
+      throw new PockityErrorBadRequest({
+        message: "Requested storage must be higher than current storage limit",
+        httpStatusCode: 400,
+        details: { current: apiKey.totalStorage, requested: requestedStorage },
+      });
+    }
+
+    if (requestedObjects <= apiKey.totalObjects) {
+      throw new PockityErrorBadRequest({
+        message: "Requested objects must be higher than current objects limit",
+        httpStatusCode: 400,
+        details: { current: apiKey.totalObjects, requested: requestedObjects },
+      });
+    }
+
+    const apiKeyRequest = await ApiKeyRequestRepository.create({
+      userId: apiKey?.userId,
+      requestedStorage,
+      requestedObjects,
+      reason,
+      requestType: API_REQUEST_TYPE.UPGRADE,
+      apiAccessKeyId,
+    });
+
+    // Log the request creation
+    await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_CREATE, {
+      apiAccessKeyId: apiKey.accessKeyId,
+      userId: apiKeyRequest.userId,
+      actorId: user.id,
+      requestType: API_REQUEST_TYPE.UPGRADE,
+    });
+
+    res.status(201).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "API key upgrade request submitted successfully. Admin will review your request.",
+        data: {
+          request: {
+            id: apiKeyRequest.id,
+            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
+            requestType: apiKeyRequest.requestType,
             requestedStorageGB,
             requestedObjects,
             reason: apiKeyRequest.reason,
@@ -279,6 +344,9 @@ export const getUserApiKeyRequestsController = async (req: Request, res: Respons
       requestedObjects: request.requestedObjects,
       reason: request.reason,
       status: request.status,
+      requestType: request.requestType,
+      keyName: request.keyName || undefined,
+      apiAccessKeyId: request.apiAccessKeyId || undefined,
       reviewerComment: request.reviewerComment,
       reviewedAt: request.reviewedAt,
       createdAt: request.createdAt,
@@ -323,6 +391,9 @@ export const getAllApiKeyRequestsController = async (req: Request, res: Response
       requestedObjects: request.requestedObjects,
       reason: request.reason,
       status: request.status,
+      requestType: request.requestType || undefined,
+      keyName: request.keyName || undefined,
+      apiAccessKeyId: request.apiAccessKeyId || undefined,
       reviewerComment: request.reviewerComment,
       reviewedAt: request.reviewedAt,
       createdAt: request.createdAt,
@@ -363,7 +434,6 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
     const { approved, reviewerComment } = validationResult.data;
     const { id } = req.params;
     const admin = req.adminUser; // From adminAuth middleware
-    const auditContext = getAuditContext(req);
 
     // Find the request
     const apiKeyRequest = await ApiKeyRequestRepository.findById(id);
@@ -384,56 +454,70 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
 
     // Update the request
     const updatedRequest = await ApiKeyRequestRepository.update(id, {
-      status: approved ? "APPROVED" : "REJECTED",
+      status: approved ? AuditAction.API_KEY_REQUEST_APPROVE : AuditAction.API_KEY_REQUEST_REJECT,
       reviewerId: admin.id,
       reviewerComment,
       reviewedAt: new Date(),
     });
 
     if (approved) {
-      // Generate API key pair
-      const apiAccessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
-      const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
+      if (apiKeyRequest.requestType === API_REQUEST_TYPE.CREATE) {
+        // Generate API key pair
+        const apiAccessKeyId = `pk_${crypto.randomBytes(16).toString("hex")}`;
+        const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
 
-      // Hash the secret key before storing
-      const secretHash = await hashData(secretKey);
+        // Hash the secret key before storing
+        const secretHash = await hashData(secretKey);
 
-      await ApiKeyRepository.create({
-        accessKeyId: apiAccessKeyId,
-        secretHash,
-        name: apiKeyRequest.keyName,
-        userId: apiKeyRequest.userId,
-        totalStorage: apiKeyRequest.requestedStorage,
-        totalObjects: apiKeyRequest.requestedObjects,
-      });
+        await ApiKeyRepository.create({
+          accessKeyId: apiAccessKeyId,
+          secretHash,
+          name: apiKeyRequest.keyName,
+          userId: apiKeyRequest.userId,
+          totalStorage: apiKeyRequest.requestedStorage,
+          totalObjects: apiKeyRequest.requestedObjects,
+        });
 
-      await EmailService.sendKeyPairEmail(apiKeyRequest.user.email, apiAccessKeyId, secretKey);
+        await EmailService.sendApiCreateRequestStatus(apiKeyRequest.user.email, apiAccessKeyId, secretKey);
 
+        // Log API key creation
+        await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_APPROVE, {
+          apiAccessKeyId: apiAccessKeyId,
+          userId: req.user.id,
+          actorId: admin.id,
+          keyName: apiKeyRequest.keyName || undefined,
+          requestType: API_REQUEST_TYPE.CREATE,
+        });
+      } else if (apiKeyRequest.requestType === API_REQUEST_TYPE.UPGRADE) {
+        await ApiKeyRepository.updateLimitsByApiAccessKeyId(
+          apiKeyRequest.apiAccessKeyId!,
+          apiKeyRequest.requestedStorage,
+          apiKeyRequest.requestedObjects,
+        );
+        await EmailService.sendApiUpgradeRequestStatus(
+          apiKeyRequest.user.email,
+          apiKeyRequest.apiAccessKeyId!,
+          "approved",
+        );
+
+        // Log API key creation
+        await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_APPROVE, {
+          apiAccessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
+          userId: req.user.id,
+          actorId: admin.id,
+          requestType: API_REQUEST_TYPE.UPGRADE,
+        });
+      }
+    } else {
       // Log API key creation
-      await AuditLogService.logApiKeyEvent("API_KEY_CREATE", {
-        apiKeyId: apiKeyRequest.id,
-        apiAccessKeyId: apiAccessKeyId,
+      await AuditLogService.logApiKeyEvent(AuditAction.API_KEY_REQUEST_REJECT, {
+        apiAccessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
         userId: req.user.id,
         actorId: admin.id,
         keyName: apiKeyRequest.keyName || undefined,
-        ...auditContext,
+        requestType: apiKeyRequest.requestType as API_REQUEST_TYPE,
       });
     }
-
-    // Log the admin action
-    await AuditLogService.logAdminAction({
-      adminId: admin.id,
-      action: approved ? "API_KEY_REQUEST_APPROVE" : "API_KEY_REQUEST_REJECT",
-      targetId: apiKeyRequest.userId,
-      details: `${approved ? "Approved" : "Rejected"} API key request for ${apiKeyRequest.user.email}`,
-      metadata: {
-        requestId: id,
-        requestedStorageGB: Number(apiKeyRequest.requestedStorage) / (1024 * 1024 * 1024),
-        requestedObjects: apiKeyRequest.requestedObjects,
-        reviewerComment,
-      },
-      ...auditContext,
-    });
 
     res.status(200).json(
       new PockityBaseResponse({
@@ -496,452 +580,6 @@ export const getApiKeyRequestController = async (req: Request, res: Response, ne
             reviewerComment: apiKeyRequest.reviewerComment,
             reviewedAt: apiKeyRequest.reviewedAt,
             createdAt: apiKeyRequest.createdAt,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Update API key storage and object limits (Admin only)
- * @param req - Express request object with API key ID in params and new limits in body
- * @param res - Express response object
- * @param next - Express next function for error handling
- */
-export const updateApiKeyLimitsController = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const apiKeyId = req.params.id;
-    const adminId = req.adminUser!.id; // adminAuth middleware ensures this exists
-    const adminRole = req.adminUser!.role;
-
-    // Only admins can directly update limits
-    if (adminRole !== "ADMIN") {
-      throw new PockityErrorUnauthorized({ 
-        message: "Only administrators can directly update API key limits", 
-        httpStatusCode: 403 
-      });
-    }
-
-    // Validate input
-    const validatedData = updateApiKeyLimitsSchema.parse(req.body);
-
-    // Check if API key exists
-    const existingApiKey = await ApiKeyRepository.findByIdWithUser(apiKeyId);
-    if (!existingApiKey) {
-      throw new PockityErrorNotFound({ 
-        message: "API key not found", 
-        httpStatusCode: 404 
-      });
-    }
-
-    // Update the API key limits
-    const updatedApiKey = await ApiKeyRepository.updateLimits(
-      apiKeyId,
-      validatedData.totalStorage,
-      validatedData.totalObjects,
-    );
-
-    // Log the action
-    await AuditLogService.log({
-      action: AUDIT_ACTIONS.API_KEY_LIMITS_UPDATE,
-      apiAccessKeyId: updatedApiKey.accessKeyId,
-      actorId: adminId,
-      detail: `Admin updated API key limits: ${validatedData.totalStorage} bytes storage, ${validatedData.totalObjects} objects`,
-      metadata: {
-        previousStorage: existingApiKey.totalStorage.toString(),
-        previousObjects: existingApiKey.totalObjects,
-        newStorage: validatedData.totalStorage.toString(),
-        newObjects: validatedData.totalObjects,
-        targetUserId: existingApiKey.userId,
-      },
-    });
-
-    res.json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key limits updated successfully",
-        data: {
-          apiKey: {
-            id: updatedApiKey.id,
-            accessKeyId: updatedApiKey.accessKeyId,
-            name: updatedApiKey.name,
-            totalStorage: updatedApiKey.totalStorage.toString(),
-            totalObjects: updatedApiKey.totalObjects,
-            isActive: updatedApiKey.isActive,
-            createdAt: updatedApiKey.createdAt,
-            lastUsedAt: updatedApiKey.lastUsedAt,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Create a new API key upgrade request
-export const createApiKeyUpgradeRequestController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Validate request body
-    const validationResult = createApiKeyUpgradeRequestSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      throw new PockityErrorInvalidInput({
-        message: "Invalid request data",
-        details: validationResult.error.errors,
-        httpStatusCode: 400,
-      });
-    }
-
-    const { apiKeyId, requestedStorageGB, requestedObjects, reason } = validationResult.data;
-    const user = req.user;
-    const auditContext = getAuditContext(req);
-
-    // Check if API key exists and user owns it
-    const apiKey = await ApiKeyRepository.findById(apiKeyId);
-    if (!apiKey) {
-      throw new PockityErrorNotFound({
-        message: "API key not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    if (apiKey.userId !== user.id) {
-      throw new PockityErrorUnauthorized({
-        message: "You can only request upgrades for your own API keys",
-        httpStatusCode: 403,
-      });
-    }
-
-    // Check if there's already a pending upgrade request for this API key
-    const existingRequests = await ApiKeyUpgradeRequestRepository.findByApiKeyId(apiKeyId);
-    const pendingRequest = existingRequests.find((request: any) => request.status === "PENDING");
-
-    if (pendingRequest) {
-      throw new PockityErrorBadRequest({
-        message: "There is already a pending upgrade request for this API key. Please wait for admin review.",
-        httpStatusCode: 409,
-      });
-    }
-
-    // Convert GB to bytes
-    const requestedStorage = BigInt(Math.ceil(requestedStorageGB * 1024 * 1024 * 1024));
-
-    // Validate that requested limits are higher than current limits
-    if (requestedStorage <= apiKey.totalStorage) {
-      throw new PockityErrorBadRequest({
-        message: "Requested storage must be higher than current storage limit",
-        httpStatusCode: 400,
-      });
-    }
-
-    if (requestedObjects <= apiKey.totalObjects) {
-      throw new PockityErrorBadRequest({
-        message: "Requested objects must be higher than current objects limit",
-        httpStatusCode: 400,
-      });
-    }
-
-    // Create the upgrade request
-    const upgradeRequest = await ApiKeyUpgradeRequestRepository.create({
-      apiKeyId,
-      userId: user.id,
-      requestedStorage,
-      requestedObjects,
-      reason,
-      status: "PENDING",
-    });
-
-    // Log the request creation
-    await AuditLogService.log({
-      action: AUDIT_ACTIONS.API_KEY_UPGRADE_REQUEST,
-      actorId: user.id,
-      apiAccessKeyId: apiKey.accessKeyId,
-      detail: `User requested API key upgrade: ${requestedStorageGB}GB storage, ${requestedObjects} objects`,
-      metadata: {
-        upgradeRequestId: upgradeRequest.id,
-        apiKeyId,
-        currentStorageGB: Number(apiKey.totalStorage) / (1024 * 1024 * 1024),
-        currentObjects: apiKey.totalObjects,
-        requestedStorageGB,
-        requestedObjects,
-        reason,
-      },
-      ...auditContext,
-    });
-
-    res.status(201).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key upgrade request submitted successfully. Admin will review your request.",
-        data: {
-          request: {
-            id: upgradeRequest.id,
-            apiKeyId: upgradeRequest.apiKeyId,
-            requestedStorageGB,
-            requestedObjects,
-            reason: upgradeRequest.reason,
-            status: upgradeRequest.status,
-            createdAt: upgradeRequest.createdAt,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get user's API key upgrade requests
-export const getUserApiKeyUpgradeRequestsController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = req.user;
-    const requests = await ApiKeyUpgradeRequestRepository.findByUserId(user.id);
-
-    const formattedRequests = requests.map((request: any) => ({
-      id: request.id,
-      apiKey: {
-        id: request.apiKey.id,
-        accessKeyId: request.apiKey.accessKeyId,
-        name: request.apiKey.name,
-        currentStorageGB: Number(request.apiKey.totalStorage) / (1024 * 1024 * 1024),
-        currentObjects: request.apiKey.totalObjects,
-      },
-      requestedStorageGB: Number(request.requestedStorage) / (1024 * 1024 * 1024),
-      requestedObjects: request.requestedObjects,
-      reason: request.reason,
-      status: request.status,
-      reviewerComment: request.reviewerComment,
-      reviewedAt: request.reviewedAt,
-      createdAt: request.createdAt,
-    }));
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key upgrade requests retrieved successfully",
-        data: { requests: formattedRequests },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Admin: Get all API key upgrade requests
-export const getAllApiKeyUpgradeRequestsController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { status, limit = 50, offset = 0 } = req.query;
-
-    const filters: any = {
-      limit: Number(limit),
-      offset: Number(offset),
-    };
-
-    if (status && typeof status === "string") {
-      filters.status = status.toUpperCase();
-    }
-
-    const requests = await ApiKeyUpgradeRequestRepository.list(filters);
-
-    const formattedRequests = requests.map((request: any) => ({
-      id: request.id,
-      user: {
-        id: request.user.id,
-        email: request.user.email,
-        name: request.user.name,
-      },
-      apiKey: {
-        id: request.apiKey.id,
-        accessKeyId: request.apiKey.accessKeyId,
-        name: request.apiKey.name,
-        currentStorageGB: Number(request.apiKey.totalStorage) / (1024 * 1024 * 1024),
-        currentObjects: request.apiKey.totalObjects,
-      },
-      requestedStorageGB: Number(request.requestedStorage) / (1024 * 1024 * 1024),
-      requestedObjects: request.requestedObjects,
-      reason: request.reason,
-      status: request.status,
-      reviewerComment: request.reviewerComment,
-      reviewedAt: request.reviewedAt,
-      createdAt: request.createdAt,
-    }));
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key upgrade requests retrieved successfully",
-        data: {
-          requests: formattedRequests,
-          pagination: {
-            limit: Number(limit),
-            offset: Number(offset),
-            total: formattedRequests.length,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Admin: Approve or reject API key upgrade request
-export const reviewApiKeyUpgradeRequestController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Validate request body
-    const validationResult = reviewApiKeyUpgradeRequestSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      throw new PockityErrorInvalidInput({
-        message: "Invalid review data",
-        details: validationResult.error.errors,
-        httpStatusCode: 400,
-      });
-    }
-
-    const { approved, reviewerComment } = validationResult.data;
-    const { id } = req.params;
-    const admin = req.adminUser; // From adminAuth middleware
-    const auditContext = getAuditContext(req);
-
-    // Find the upgrade request
-    const upgradeRequest = await ApiKeyUpgradeRequestRepository.findById(id);
-    if (!upgradeRequest) {
-      throw new PockityErrorNotFound({
-        message: "API key upgrade request not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    // Check if already reviewed
-    if (upgradeRequest.status !== "PENDING") {
-      throw new PockityErrorBadRequest({
-        message: "This upgrade request has already been reviewed",
-        httpStatusCode: 409,
-      });
-    }
-
-    // Update the request
-    const updatedRequest = await ApiKeyUpgradeRequestRepository.update(id, {
-      status: approved ? "APPROVED" : "REJECTED",
-      reviewerId: admin.id,
-      reviewerComment,
-      reviewedAt: new Date(),
-    });
-
-    if (approved) {
-      // Update the API key limits
-      await ApiKeyRepository.updateLimits(
-        upgradeRequest.apiKeyId,
-        Number(upgradeRequest.requestedStorage),
-        upgradeRequest.requestedObjects,
-      );
-
-      // Log the API key update
-      await AuditLogService.log({
-        action: AUDIT_ACTIONS.API_KEY_LIMITS_UPDATE,
-        apiAccessKeyId: upgradeRequest.apiKey.accessKeyId,
-        actorId: admin.id,
-        detail: `Admin approved upgrade request and updated API key limits: ${Number(upgradeRequest.requestedStorage)} bytes storage, ${upgradeRequest.requestedObjects} objects`,
-        metadata: {
-          upgradeRequestId: id,
-          previousStorage: upgradeRequest.apiKey.totalStorage.toString(),
-          previousObjects: upgradeRequest.apiKey.totalObjects,
-          newStorage: upgradeRequest.requestedStorage.toString(),
-          newObjects: upgradeRequest.requestedObjects,
-          targetUserId: upgradeRequest.userId,
-        },
-        ...auditContext,
-      });
-    }
-
-    // Log the admin action
-    await AuditLogService.logAdminAction({
-      adminId: admin.id,
-      action: approved ? "API_KEY_UPGRADE_APPROVE" : "API_KEY_UPGRADE_REJECT",
-      targetId: upgradeRequest.userId,
-      details: `${approved ? "Approved" : "Rejected"} API key upgrade request for ${upgradeRequest.user.email}`,
-      metadata: {
-        upgradeRequestId: id,
-        apiKeyId: upgradeRequest.apiKeyId,
-        currentStorageGB: Number(upgradeRequest.apiKey.totalStorage) / (1024 * 1024 * 1024),
-        currentObjects: upgradeRequest.apiKey.totalObjects,
-        requestedStorageGB: Number(upgradeRequest.requestedStorage) / (1024 * 1024 * 1024),
-        requestedObjects: upgradeRequest.requestedObjects,
-        reviewerComment,
-      },
-      ...auditContext,
-    });
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: `API key upgrade request ${approved ? "approved" : "rejected"} successfully`,
-        data: {
-          request: {
-            id: updatedRequest.id,
-            user: updatedRequest.user,
-            apiKey: updatedRequest.apiKey,
-            requestedStorageGB: Number(updatedRequest.requestedStorage) / (1024 * 1024 * 1024),
-            requestedObjects: updatedRequest.requestedObjects,
-            reason: updatedRequest.reason,
-            status: updatedRequest.status,
-            reviewerComment: updatedRequest.reviewerComment,
-            reviewedAt: updatedRequest.reviewedAt,
-            createdAt: updatedRequest.createdAt,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get a specific API key upgrade request
-export const getApiKeyUpgradeRequestController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const user = req.user;
-
-    const upgradeRequest = await ApiKeyUpgradeRequestRepository.findById(id);
-    if (!upgradeRequest) {
-      throw new PockityErrorNotFound({
-        message: "API key upgrade request not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    // Check if user owns the request (unless they're admin)
-    if (user.role !== "ADMIN" && upgradeRequest.userId !== user.id) {
-      throw new PockityErrorUnauthorized({
-        message: "Unauthorized to view this upgrade request",
-        httpStatusCode: 403,
-      });
-    }
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key upgrade request retrieved successfully",
-        data: {
-          request: {
-            id: upgradeRequest.id,
-            user: user.role === "ADMIN" ? upgradeRequest.user : undefined,
-            apiKey: upgradeRequest.apiKey,
-            requestedStorageGB: Number(upgradeRequest.requestedStorage) / (1024 * 1024 * 1024),
-            requestedObjects: upgradeRequest.requestedObjects,
-            reason: upgradeRequest.reason,
-            status: upgradeRequest.status,
-            reviewerComment: upgradeRequest.reviewerComment,
-            reviewedAt: upgradeRequest.reviewedAt,
-            createdAt: upgradeRequest.createdAt,
           },
         },
       }),

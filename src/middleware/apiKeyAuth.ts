@@ -17,7 +17,7 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     }
 
     // Find the API key in database
-    const apiKey = await ApiKeyRepository.findByAccessKey(apiAccessKeyId);
+    const apiKey = await ApiKeyRepository.findByAccessKeyId(apiAccessKeyId);
     if (!apiKey) {
       throw new PockityErrorAuthentication({
         message: "Invalid API key",
