@@ -11,6 +11,7 @@ Pockity is a secure, multi-tenant cloud storage service that provides file stora
 Pockity supports two authentication methods:
 
 ### 1. JWT Authentication (User Access)
+
 For user management and account operations. Include the JWT token in the Authorization header:
 
 ```
@@ -18,6 +19,7 @@ Authorization: Bearer <your_jwt_token>
 ```
 
 ### 2. API Key Authentication (Storage Access)
+
 For programmatic file storage operations. Include these headers:
 
 ```
@@ -30,12 +32,14 @@ x-secret-key: <your_secret_key>
 Pockity implements automatic storage isolation based on authentication method:
 
 ### API Key Storage
+
 - **Folder Structure:** `apikeys/{accessKeyId}/`
 - **Isolation:** Complete separation between different API keys
 - **Creation:** Automatic folder provisioning when API keys are approved
 - **Use Case:** Multi-application or multi-environment usage
 
 ### User Storage (JWT) - Legacy Support
+
 - **Folder Structure:** `users/{userId}/`
 - **Isolation:** Traditional user-based separation
 - **Use Case:** Direct user authentication and existing integrations
@@ -60,9 +64,11 @@ All API responses follow this consistent structure:
 ### Authentication
 
 #### Register User
+
 - **POST** `/auth/register`
 - **Description:** Create a new user account
 - **Body:**
+
 ```json
 {
   "email": "user@example.com",
@@ -70,7 +76,9 @@ All API responses follow this consistent structure:
   "name": "John Doe"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -89,16 +97,20 @@ All API responses follow this consistent structure:
 ```
 
 #### Login User
+
 - **POST** `/auth/login`
 - **Description:** Authenticate user and get JWT token
 - **Body:**
+
 ```json
 {
   "email": "user@example.com",
   "password": "securepassword123"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -119,10 +131,12 @@ All API responses follow this consistent structure:
 ### Email Verification (OTP)
 
 #### Send OTP
+
 - **POST** `/otp/send`
 - **Auth:** Required (JWT)
 - **Description:** Send verification OTP to user's email
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -134,12 +148,14 @@ All API responses follow this consistent structure:
 ```
 
 #### Verify OTP
+
 - **POST** `/otp/verify/:otp`
 - **Auth:** Required (JWT)
 - **Description:** Verify OTP and mark email as verified
 - **Parameters:**
   - `otp` (path): 6-digit OTP code
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -159,10 +175,12 @@ All API responses follow this consistent structure:
 ### User Management
 
 #### Get User Profile
+
 - **GET** `/users/profile`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get current user's profile information
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -193,17 +211,21 @@ All API responses follow this consistent structure:
 ```
 
 #### Update User Profile
+
 - **PUT** `/users/profile`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Update user profile information
 - **Body:**
+
 ```json
 {
   "name": "Updated Name",
   "email": "newemail@example.com"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -222,17 +244,21 @@ All API responses follow this consistent structure:
 ```
 
 #### Change Password
+
 - **POST** `/users/change-password`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Change user password
 - **Body:**
+
 ```json
 {
   "currentPassword": "oldpassword123",
   "newPassword": "newpassword123"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -242,10 +268,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get Account Summary
+
 - **GET** `/users/summary`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get comprehensive account summary with usage data
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -288,10 +316,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Delete Account
+
 - **DELETE** `/users/account`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Delete user account and mark for data removal
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -303,10 +333,12 @@ All API responses follow this consistent structure:
 ### API Key Management
 
 #### List API Keys
+
 - **GET** `/apiKeys/`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get all API keys for the current user
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -326,10 +358,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get API Key Details
+
 - **GET** `/apiKeys/:id`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get detailed information about a specific API key
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -347,10 +381,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Revoke API Key
+
 - **DELETE** `/apiKeys/:id`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Revoke/deactivate an API key
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -365,10 +401,12 @@ All API responses follow this consistent structure:
 ### API Key Request Management
 
 #### Get User's API Key Requests
+
 - **GET** `/apiKeys/request`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get all API key requests for the current user
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -391,10 +429,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Create API Key Request
+
 - **POST** `/apiKeys/request/create`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Request creation of a new API key with specific quotas
 - **Body:**
+
 ```json
 {
   "keyName": "My New API Key",
@@ -403,7 +443,9 @@ All API responses follow this consistent structure:
   "reason": "Need additional storage for my application data backup and file sharing features"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -424,10 +466,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Create API Key Upgrade Request
+
 - **POST** `/apiKeys/request/upgrade`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Request quota upgrade for an existing API key
 - **Body:**
+
 ```json
 {
   "apiAccessKeyId": "existing_access_key_id",
@@ -436,7 +480,9 @@ All API responses follow this consistent structure:
   "reason": "Current quota is insufficient for growing application needs"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -457,10 +503,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get API Key Request Details
+
 - **GET** `/apiKeys/request/:id`
 - **Auth:** Required (JWT + Email Verification)
 - **Description:** Get detailed information about a specific API key request
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -487,12 +535,14 @@ All API responses follow this consistent structure:
 **Note:** All storage endpoints require API key authentication only. JWT authentication is not supported for storage operations.
 
 #### Upload File
+
 - **POST** `/storage/upload`
 - **Auth:** Required (API Key only)
 - **Description:** Upload a file to storage
 - **Content-Type:** `multipart/form-data`
 - **Body:** Form data with file field
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -519,6 +569,7 @@ All API responses follow this consistent structure:
 ```
 
 #### List Files
+
 - **GET** `/storage/files`
 - **Auth:** Required (API Key only)
 - **Description:** List all files in storage
@@ -527,6 +578,7 @@ All API responses follow this consistent structure:
   - `offset` (optional): Number of files to skip (default: 0)
   - `search` (optional): Search files by name
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -553,27 +605,31 @@ All API responses follow this consistent structure:
 ```
 
 #### Get File
+
 - **GET** `/storage/files/:fileName`
 - **Auth:** Required (API Key only)
 - **Description:** Get presigned URL for file download
 - **Response:**
+
 ```json
 {
   "success": true,
   "message": "File URL generated successfully",
   "data": {
     "fileName": "document.pdf",
-    "downloadUrl": "https://s3.amazonaws.com/bucket/apikeys/access_key_id/document.pdf?X-Amz-Algorithm=...",
+    "downloadUrl": "https://s3.amazonaws.com/bucket/apikeys/access_key_id/document.pdf",
     "expiresIn": 3600
   }
 }
 ```
 
 #### Get File Metadata
+
 - **GET** `/storage/files/:fileName/metadata`
 - **Auth:** Required (API Key only)
 - **Description:** Get detailed metadata for a specific file
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -594,10 +650,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Delete File
+
 - **DELETE** `/storage/files/:fileName`
 - **Auth:** Required (API Key only)
 - **Description:** Delete a specific file
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -611,16 +669,20 @@ All API responses follow this consistent structure:
 ```
 
 #### Bulk Delete Files
+
 - **POST** `/storage/files/bulk-delete`
 - **Auth:** Required (API Key only)
 - **Description:** Delete multiple files at once
 - **Body:**
+
 ```json
 {
   "fileNames": ["file1.pdf", "file2.jpg", "file3.docx"]
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -644,10 +706,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get Storage Usage
+
 - **GET** `/storage/usage`
 - **Auth:** Required (API Key only)
 - **Description:** Get current storage usage and quota information
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -673,10 +737,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get Storage Analytics
+
 - **GET** `/storage/analytics`
 - **Auth:** Required (API Key only)
 - **Description:** Get detailed storage analytics and insights
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -718,10 +784,12 @@ All API responses follow this consistent structure:
 **Note:** All admin endpoints require JWT authentication with admin role.
 
 #### Get System Health
+
 - **GET** `/admin/health`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Get system health and statistics
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -757,6 +825,7 @@ All API responses follow this consistent structure:
 ```
 
 #### Get User Analytics
+
 - **GET** `/admin/users`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Get detailed user analytics
@@ -764,6 +833,7 @@ All API responses follow this consistent structure:
   - `limit` (optional): Number of users to return (default: 50)
   - `offset` (optional): Number of users to skip (default: 0)
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -799,10 +869,12 @@ All API responses follow this consistent structure:
 ```
 
 #### Get API Key Overview
+
 - **GET** `/admin/api-keys`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Get comprehensive API key overview for all users
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -831,6 +903,7 @@ All API responses follow this consistent structure:
 ```
 
 #### Get Audit Logs
+
 - **GET** `/admin/audit-logs`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Get system audit logs
@@ -839,6 +912,7 @@ All API responses follow this consistent structure:
   - `offset` (optional): Number of logs to skip (default: 0)
   - `action` (optional): Filter by specific action type
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -850,10 +924,6 @@ All API responses follow this consistent structure:
       "userId": "user_id",
       "apiAccessKeyId": null,
       "detail": "User logged in successfully",
-      "metadata": {
-        "userAgent": "Mozilla/5.0...",
-        "ipAddress": "192.168.1.1"
-      },
       "createdAt": "2024-01-02T00:00:00.000Z"
     }
   ]
@@ -863,6 +933,7 @@ All API responses follow this consistent structure:
 ### Admin API Key Request Management
 
 #### Get All API Key Requests (Admin)
+
 - **GET** `/apiKeys/request/admin/all`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Get all API key requests across all users
@@ -871,6 +942,7 @@ All API responses follow this consistent structure:
   - `limit` (optional): Number of results (default: 50)
   - `offset` (optional): Offset for pagination (default: 0)
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -906,17 +978,21 @@ All API responses follow this consistent structure:
 ```
 
 #### Review API Key Request (Admin)
+
 - **PATCH** `/apiKeys/request/admin/review/:id`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Approve or reject an API key request
 - **Body:**
+
 ```json
 {
   "approved": true,
   "reviewerComment": "Approved for legitimate business use"
 }
 ```
+
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -941,10 +1017,12 @@ All API responses follow this consistent structure:
 ### Public Endpoints
 
 #### Health Check
+
 - **GET** `/open/health`
 - **Auth:** None
 - **Description:** Check if the API is running and healthy
 - **Response:**
+
 ```json
 {
   "success": true,
@@ -1023,15 +1101,15 @@ curl -X GET http://localhost:8080/api/storage/usage \
 ```javascript
 // Upload file with fetch
 const formData = new FormData();
-formData.append('file', fileInput.files[0]);
+formData.append("file", fileInput.files[0]);
 
-const response = await fetch('http://localhost:8080/api/storage/upload', {
-  method: 'POST',
+const response = await fetch("http://localhost:8080/api/storage/upload", {
+  method: "POST",
   headers: {
-    'x-access-key-id': 'your_access_key_id',
-    'x-secret-key': 'your_secret_key'
+    "x-access-key-id": "your_access_key_id",
+    "x-secret-key": "your_secret_key",
   },
-  body: formData
+  body: formData,
 });
 
 const result = await response.json();

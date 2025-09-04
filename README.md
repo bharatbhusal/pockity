@@ -27,7 +27,6 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
 - 📂 **Advanced Storage Control**
   - All users share the same S3 bucket with intelligent prefix routing
   - **API Key Storage:** Isolated folders using `apikeys/{accessKeyId}/` for complete separation
-  - **User Storage:** Traditional `users/{userId}/` prefix for JWT authentication (backward compatible)
   - Real-time quota enforcement before file uploads
   - Configurable quotas per API key (storage in GB, object count)
   - Quota exceeded events automatically logged for monitoring
@@ -66,14 +65,15 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
 ## 🏗 Tech Stack
 
 - **Backend:** Node.js + TypeScript + Express
-- **Database:** PostgreSQL + Prisma ORM
-- **Storage:** AWS S3 (single bucket, per-user/per-API-key prefixes)
+- **Database:** PostgreSQL(AWS RDS) + Prisma ORM
+- **Storage:** AWS S3 (single bucket, per-API-key prefixes)
 - **Auth:** JWT-based user authentication + API key authentication
 - **File Upload:** Multer middleware for multipart/form-data
 - **AWS SDK:** @aws-sdk/client-s3 for S3 operations
 - **Security:** bcrypt for password/key hashing, CORS protection
 - **Validation:** Zod for request validation
 - **Email:** Nodemailer for OTP verification
+- **Deployment and CI/CD:** AWS EC2, AWS RDS, Route53, Github, Github Actions
 
 ---
 
@@ -81,26 +81,22 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
 
 Pockity ensures complete data isolation between users and API keys through several security measures:
 
-### Dual-Mode Storage Isolation
+### API Key-Based Isolation
 
-#### API Key-Based Isolation
 - Each API key gets its own isolated folder: `apikeys/{accessKeyId}/`
 - Automatic folder creation when API keys are approved
 - Complete separation between different API keys, even from the same user
 - Perfect for multi-application or multi-environment usage
 
-#### User-Based Isolation (Legacy Support)
-- Traditional user folders: `users/{userId}/`
-- Maintains backward compatibility with JWT authentication
-- All existing user data remains accessible
-
 ### Storage Operation Security
+
 - All storage operations validate ownership before allowing access
 - Users/API keys cannot access files belonging to others
 - Presigned URLs are generated with appropriate permissions
 - Intelligent prefix routing based on authentication method
 
 ### API Key Security
+
 - API keys use a two-part system: `accessKeyId` and `secretKey`
 - Secret keys are hashed using bcrypt before storage
 - Keys can be revoked instantly and have activity tracking
@@ -108,6 +104,7 @@ Pockity ensures complete data isolation between users and API keys through sever
 - Automatic S3 folder provisioning ensures immediate isolation
 
 ### Admin Controls
+
 - Admin-only endpoints for managing API key requests and approvals
 - Comprehensive admin dashboard with system health monitoring
 - User analytics and API key overview for administrators
@@ -116,6 +113,7 @@ Pockity ensures complete data isolation between users and API keys through sever
 - Comprehensive audit logging for all administrative actions
 
 ### Audit & Compliance
+
 - Strict audit logging for all critical system events
 - Automated logging of user registration, login, profile updates, deletions
 - Complete API key lifecycle tracking (creation, usage, revocation)
@@ -124,6 +122,7 @@ Pockity ensures complete data isolation between users and API keys through sever
 - IP address and user agent tracking for security analysis
 
 ### Environment Security
+
 - All AWS credentials and sensitive data stored in environment variables
 - JWT tokens for secure authentication
 - CORS protection with configurable origins
@@ -133,12 +132,14 @@ Pockity ensures complete data isolation between users and API keys through sever
 ## 🚀 Quick Setup
 
 ### Prerequisites
+
 - Node.js (v18+)
 - PostgreSQL database
 - AWS S3 bucket
 - Environment variables configured
 
 ### Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/bharatbhusal/pockity.git
@@ -164,6 +165,7 @@ npm run dev
 ```
 
 ### Environment Variables
+
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/pockity"
 JWT_SECRET="your-jwt-secret"
@@ -181,14 +183,17 @@ EMAIL_PASS="your-email-password"
 ## 📡 API Overview
 
 ### Authentication
+
 - `POST /api/auth/register` → User registration
 - `POST /api/auth/login` → User login with JWT token
 
 ### Email Verification
+
 - `POST /api/otp/send` → Send OTP to user's email
 - `POST /api/otp/verify/:otp` → Verify OTP and mark email as verified
 
 ### User Management
+
 - `GET /api/users/profile` → Get user profile with API keys info
 - `PUT /api/users/profile` → Update user profile (name, email)
 - `POST /api/users/change-password` → Change user password
@@ -196,17 +201,20 @@ EMAIL_PASS="your-email-password"
 - `DELETE /api/users/account` → Delete user account
 
 ### API Key Management
+
 - `GET /api/apiKeys` → List user's API keys
 - `GET /api/apiKeys/:id` → Get specific API key details
 - `DELETE /api/apiKeys/:id` → Revoke API key
 
 ### API Key Request Management
+
 - `GET /api/apiKeys/request` → Get user's API key requests
 - `POST /api/apiKeys/request/create` → Create API key request with custom storage quota
 - `POST /api/apiKeys/request/upgrade` → Create API key upgrade request
 - `GET /api/apiKeys/request/:id` → Get specific API key request details
 
 ### File Storage (API Key Authentication Required)
+
 - `POST /api/storage/upload` → Upload file with quota enforcement
 - `GET /api/storage/files` → List all files with metadata
 - `GET /api/storage/files/:fileName` → Get file download URL
@@ -217,16 +225,19 @@ EMAIL_PASS="your-email-password"
 - `GET /api/storage/analytics` → Get storage analytics with file type breakdown
 
 ### Admin Operations
+
 - `GET /api/apiKeys/request/admin/all` → List all API key requests (admin only)
 - `PATCH /api/apiKeys/request/admin/review/:id` → Approve/reject API key request (admin only)
 
 ### Admin Dashboard
+
 - `GET /api/admin/health` → System health and statistics overview
 - `GET /api/admin/users` → User analytics and management data
 - `GET /api/admin/api-keys` → API key overview and usage statistics
 - `GET /api/admin/audit-logs` → System audit logs with filtering
 
 ### Public Endpoints
+
 - `GET /api/open/health` → Health check
 
 **📖 For detailed API documentation with request/response schemas, see [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)**
@@ -236,6 +247,7 @@ EMAIL_PASS="your-email-password"
 ## 📋 API Usage Examples
 
 ### Authentication Flow
+
 ```bash
 # Register a new user
 curl -X POST http://localhost:8080/api/auth/register \
@@ -257,6 +269,7 @@ curl -X POST http://localhost:8080/api/otp/verify/123456 \
 ```
 
 ### API Key Request Flow
+
 ```bash
 # Request a new API key with custom quotas
 curl -X POST http://localhost:8080/api/apiKeys/request/create \
@@ -284,6 +297,7 @@ curl -X PATCH http://localhost:8080/api/apiKeys/request/admin/review/REQUEST_ID 
 ```
 
 ### File Storage Operations
+
 ```bash
 # Upload file using API key authentication
 curl -X POST http://localhost:8080/api/storage/upload \
@@ -330,6 +344,7 @@ curl -X GET http://localhost:8080/api/storage/analytics \
 ```
 
 ### User Account Management
+
 ```bash
 # Get user profile
 curl -X GET http://localhost:8080/api/users/profile \
@@ -353,6 +368,7 @@ curl -X GET http://localhost:8080/api/users/summary \
 ```
 
 ### Admin Dashboard
+
 ```bash
 # Get system health and statistics
 curl -X GET http://localhost:8080/api/admin/health \
@@ -376,6 +392,7 @@ curl -X GET http://localhost:8080/api/admin/audit-logs \
 ## 🔧 Core Concepts
 
 ### Quota Management
+
 - Each API key has individual storage quotas (GB) and object count limits
 - Quotas are requested by users and approved by admins
 - Real-time quota checking before file uploads
@@ -383,12 +400,13 @@ curl -X GET http://localhost:8080/api/admin/audit-logs \
 - Quota exceeded events are logged for monitoring
 
 ### Storage Isolation
+
 - **API Key Storage:** `apikeys/{accessKeyId}/` - Complete isolation per API key
-- **User Storage:** `users/{userId}/` - Legacy support for JWT authentication
 - Files uploaded with different authentication methods are completely isolated
 - Automatic folder creation when API keys are approved
 
 ### Admin Approval Workflow
+
 1. User requests API key with desired quotas and provides justification
 2. Admin reviews the request and can approve/reject with comments
 3. Upon approval, API key is generated and S3 folder is created
@@ -396,6 +414,7 @@ curl -X GET http://localhost:8080/api/admin/audit-logs \
 5. All actions are logged in audit trail
 
 ### Authentication Methods
+
 - **JWT Authentication:** For user management, profile operations, API key requests
 - **API Key Authentication:** For file storage operations only
 - Each method provides access to different endpoints and isolated storage
@@ -405,12 +424,14 @@ curl -X GET http://localhost:8080/api/admin/audit-logs \
 ## 📊 Monitoring & Analytics
 
 ### Usage Tracking
+
 - Real-time storage usage monitoring per API key
 - File type categorization and analytics
 - Upload/download activity tracking
 - Quota utilization percentages
 
 ### Audit Logging
+
 - Complete audit trail for all critical operations
 - User registration, login, profile changes, account deletion
 - API key lifecycle (creation, usage, revocation)
@@ -418,6 +439,7 @@ curl -X GET http://localhost:8080/api/admin/audit-logs \
 - Admin actions and approvals
 
 ### Admin Dashboard
+
 - System health monitoring
 - User analytics and activity overview
 - API key usage statistics
@@ -451,6 +473,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙋‍♂️ Support
 
 For questions, issues, or contributions:
+
 - **GitHub Issues:** [Create an issue](https://github.com/bharatbhusal/pockity/issues)
 - **Email:** bharatbhusal78@gmail.com
 - **Documentation:** See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for detailed API reference
