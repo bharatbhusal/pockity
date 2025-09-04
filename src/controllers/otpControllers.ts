@@ -6,7 +6,6 @@ import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
 import { AuditLogService } from "../services/auditLogService";
 
-
 const verifyOtpSchema = z.object({
   otp: z
     .string()
@@ -57,7 +56,6 @@ export const verifyOtpController = async (req: Request, res: Response, next: Nex
 
     const { otp } = validationResult.data;
     const user = req.user;
-    
 
     // Verify OTP
     await OtpService.verifyOtp(user.id, otp);
@@ -71,7 +69,6 @@ export const verifyOtpController = async (req: Request, res: Response, next: Nex
     await AuditLogService.logEmailVerified({
       userId: user.id,
       email: user.email,
-      
     });
 
     res.status(200).json(
