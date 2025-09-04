@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pockity is a comprehensive cloud storage service similar to Cloudinary, providing file storage, user management, billing, and analytics. This documentation covers all available API endpoints.
+Pockity is a secure, multi-tenant cloud storage service that provides file storage with API key management, user authentication, and quota control. Each user gets isolated storage namespaces with granular access control.
 
 **Base URL:** `http://localhost:8080/api`
 
@@ -10,51 +10,41 @@ Pockity is a comprehensive cloud storage service similar to Cloudinary, providin
 
 Pockity supports two authentication methods:
 
-### 1. JWT Authentication
-Most endpoints support JWT authentication. Include the token in the Authorization header:
+### 1. JWT Authentication (User Access)
+For user management and account operations. Include the JWT token in the Authorization header:
 
 ```
 Authorization: Bearer <your_jwt_token>
 ```
 
-### 2. API Key Authentication
-For programmatic access, you can use API key authentication with these headers:
+### 2. API Key Authentication (Storage Access)
+For programmatic file storage operations. Include these headers:
 
 ```
 x-access-key-id: <your_access_key_id>
 x-secret-key: <your_secret_key>
 ```
 
-**Storage Isolation:**
-- **JWT Authentication:** Files are stored in `users/{userId}/` folders
-- **API Key Authentication:** Files are stored in `apikeys/{accessKeyId}/` folders for complete isolation
-
-**Important:** Each API key gets its own isolated storage space, separate from other API keys and user storage.
-
 ## Storage Isolation
 
-Pockity implements automatic storage isolation based on your authentication method:
+Pockity implements automatic storage isolation based on authentication method:
 
 ### API Key Storage
 - **Folder Structure:** `apikeys/{accessKeyId}/`
 - **Isolation:** Complete separation between different API keys
-- **Creation:** Automatic folder provisioning when generating API keys
-- **Use Case:** Perfect for multi-application or multi-environment usage
+- **Creation:** Automatic folder provisioning when API keys are approved
+- **Use Case:** Multi-application or multi-environment usage
 
-### User Storage (JWT)
+### User Storage (JWT) - Legacy Support
 - **Folder Structure:** `users/{userId}/`
 - **Isolation:** Traditional user-based separation
-- **Backward Compatibility:** All existing user data remains accessible
 - **Use Case:** Direct user authentication and existing integrations
 
-### Cross-Authentication Access
-- Files uploaded with API key authentication are **not** accessible via JWT authentication
-- Files uploaded with JWT authentication are **not** accessible via API key authentication
-- This ensures complete isolation and security between different access methods
+**Important:** Files uploaded with API key authentication are NOT accessible via JWT authentication and vice versa.
 
 ## Response Format
 
-All API responses follow a consistent structure:
+All API responses follow this consistent structure:
 
 ```json
 {
@@ -65,36 +55,18 @@ All API responses follow a consistent structure:
 }
 ```
 
-## Error Handling
-
-Error responses include:
-- `success`: false
-- `message`: Error description
-- `details`: Additional error information (for validation errors)
-
-HTTP status codes:
-- `200`: Success
-- `201`: Created
-- `400`: Bad Request
-- `401`: Unauthorized
-- `403`: Forbidden
-- `404`: Not Found
-- `409`: Conflict
-- `413`: Payload Too Large
-- `500`: Internal Server Error
-
 ## Endpoints
 
 ### Authentication
 
 #### Register User
 - **POST** `/auth/register`
-- **Description:** Register a new user account
+- **Description:** Create a new user account
 - **Body:**
 ```json
 {
   "email": "user@example.com",
-  "password": "password123",
+  "password": "securepassword123",
   "name": "John Doe"
 }
 ```
@@ -108,9 +80,10 @@ HTTP status codes:
       "id": "user_id",
       "email": "user@example.com",
       "name": "John Doe",
-      "role": "USER"
+      "role": "USER",
+      "emailVerified": false
     },
-    "token": "jwt_token"
+    "token": "jwt_token_here"
   }
 }
 ```
@@ -122,7 +95,7 @@ HTTP status codes:
 ```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "securepassword123"
 }
 ```
 - **Response:**
@@ -135,9 +108,10 @@ HTTP status codes:
       "id": "user_id",
       "email": "user@example.com",
       "name": "John Doe",
-      "role": "USER"
+      "role": "USER",
+      "emailVerified": false
     },
-    "token": "jwt_token"
+    "token": "jwt_token_here"
   }
 }
 ```
@@ -146,14 +120,8 @@ HTTP status codes:
 
 #### Send OTP
 - **POST** `/otp/send`
-- **Auth:** Required
-- **Description:** Send OTP to user's email for verification
-- **Body (Optional):**
-```json
-{
-  "email": "newemail@example.com"
-}
-```
+- **Auth:** Required (JWT)
+- **Description:** Send verification OTP to user's email
 - **Response:**
 ```json
 {
@@ -166,15 +134,11 @@ HTTP status codes:
 ```
 
 #### Verify OTP
-- **POST** `/otp/verify`
-- **Auth:** Required
+- **POST** `/otp/verify/:otp`
+- **Auth:** Required (JWT)
 - **Description:** Verify OTP and mark email as verified
-- **Body:**
-```json
-{
-  "otp": "123456"
-}
-```
+- **Parameters:**
+  - `otp` (path): 6-digit OTP code
 - **Response:**
 ```json
 {
@@ -196,8 +160,8 @@ HTTP status codes:
 
 #### Get User Profile
 - **GET** `/users/profile`
-- **Auth:** Required + Email Verification Required
-- **Description:** Get current user's profile with usage and subscription info
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get current user's profile information
 - **Response:**
 ```json
 {
@@ -213,35 +177,30 @@ HTTP status codes:
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z"
     },
-    "usage": {
-      "bytesUsed": "1048576",
-      "objectsUsed": 5,
-      "quotaBytes": "1073741824",
-      "quotaObjects": 1000,
-      "usagePercentage": {
-        "bytes": 0.1,
-        "objects": 0.5
+    "apiKeys": [
+      {
+        "id": "key_id",
+        "apiAccessKeyId": "access_key_id",
+        "name": "My API Key",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "lastUsedAt": "2024-01-02T00:00:00.000Z",
+        "revokedAt": null
       }
-    },
-    "subscription": {
-      "id": "sub_id",
-      "planId": "plan_id",
-      "status": "ACTIVE",
-      "currentPeriodEnd": "2024-02-01T00:00:00.000Z"
-    }
+    ]
   }
 }
 ```
 
 #### Update User Profile
 - **PUT** `/users/profile`
-- **Auth:** Required + Email Verification Required
+- **Auth:** Required (JWT + Email Verification)
 - **Description:** Update user profile information
 - **Body:**
 ```json
 {
-  "name": "John Smith",
-  "email": "newmail@example.com"
+  "name": "Updated Name",
+  "email": "newemail@example.com"
 }
 ```
 - **Response:**
@@ -252,11 +211,11 @@ HTTP status codes:
   "data": {
     "user": {
       "id": "user_id",
-      "email": "newmail@example.com",
-      "name": "John Smith",
+      "email": "newemail@example.com",
+      "name": "Updated Name",
       "role": "USER",
       "emailVerified": false,
-      "updatedAt": "2024-01-01T00:00:00.000Z"
+      "updatedAt": "2024-01-02T00:00:00.000Z"
     }
   }
 }
@@ -264,12 +223,12 @@ HTTP status codes:
 
 #### Change Password
 - **POST** `/users/change-password`
-- **Auth:** Required + Email Verification Required
+- **Auth:** Required (JWT + Email Verification)
 - **Description:** Change user password
 - **Body:**
 ```json
 {
-  "currentPassword": "oldpassword",
+  "currentPassword": "oldpassword123",
   "newPassword": "newpassword123"
 }
 ```
@@ -284,8 +243,8 @@ HTTP status codes:
 
 #### Get Account Summary
 - **GET** `/users/summary`
-- **Auth:** Required + Email Verification Required
-- **Description:** Get comprehensive account information
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get comprehensive account summary with usage data
 - **Response:**
 ```json
 {
@@ -300,36 +259,38 @@ HTTP status codes:
       "emailVerified": true,
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "usage": {
-      "current": {
-        "bytesUsed": "1048576",
-        "objectsUsed": 5,
-        "lastUpdated": "2024-01-01T00:00:00.000Z"
-      },
-      "quota": {
-        "maxBytes": "1073741824",
-        "maxObjects": 1000
-      },
-      "percentage": {
-        "bytes": 0.1,
-        "objects": 0.5
+    "apiKeys": [
+      {
+        "id": "key_id",
+        "apiAccessKeyId": "access_key_id",
+        "name": "My API Key",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "lastUsedAt": "2024-01-02T00:00:00.000Z",
+        "revokedAt": null,
+        "quota": {
+          "usage": {
+            "gbsUsed": "0.45",
+            "objects": 123,
+            "lastUpdated": "2024-01-02T00:00:00.000Z"
+          },
+          "quota": {
+            "maxGbs": "5.00",
+            "maxObjects": 10000,
+            "canUpload": true,
+            "quotaExceeded": false
+          }
+        }
       }
-    },
-    "billing": {
-      "subscription": {},
-      "nextInvoiceAmount": 0,
-      "nextInvoiceDate": "2024-02-01T00:00:00.000Z",
-      "paymentMethodsCount": 2,
-      "creditsBalance": 999999
-    }
+    ]
   }
 }
 ```
 
 #### Delete Account
 - **DELETE** `/users/account`
-- **Auth:** Required
-- **Description:** Delete user account (marks for deletion)
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Delete user account and mark for data removal
 - **Response:**
 ```json
 {
@@ -339,871 +300,122 @@ HTTP status codes:
 }
 ```
 
-### File Storage
-
-#### Upload File
-- **POST** `/storage/upload`
-- **Auth:** Required (JWT or API Key)
-- **Content-Type:** `multipart/form-data`
-- **Description:** Upload a file with quota enforcement. Files are stored in different folders based on authentication method:
-  - JWT: `users/{userId}/filename`
-  - API Key: `apikeys/{accessKeyId}/filename`
-- **Body:** Form data with `file` field
-
-**Example with JWT:**
-```bash
-curl -X POST /storage/upload \
-  -H "Authorization: Bearer jwt_token" \
-  -F "file=@document.pdf"
-```
-
-**Example with API Key:**
-```bash
-curl -X POST /storage/upload \
-  -H "x-access-key-id: pk_your_access_key" \
-  -H "x-secret-key: sk_your_secret_key" \
-  -F "file=@document.pdf"
-```
-
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "File uploaded successfully",
-  "data": {
-    "fileName": "example.jpg",
-    "key": "apikeys/pk_abc123/example.jpg",  // or "users/user_id/example.jpg"
-    "url": "https://presigned-url.com",
-    "size": 1048576,
-    "contentType": "image/jpeg"
-  }
-}
-```
-
-#### List Files
-- **GET** `/storage/files`
-- **Auth:** Required (JWT or API Key)
-- **Description:** List all files accessible to the authenticated user/API key. Returns files from:
-  - JWT: `users/{userId}/` folder
-  - API Key: `apikeys/{accessKeyId}/` folder
-
-**Example with JWT:**
-```bash
-curl -X GET /storage/files \
-  -H "Authorization: Bearer jwt_token"
-```
-
-**Example with API Key:**
-```bash
-curl -X GET /storage/files \
-  -H "x-access-key-id: pk_your_access_key" \
-  -H "x-secret-key: sk_your_secret_key"
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Files retrieved successfully",
-  "data": {
-    "files": [
-      {
-        "key": "example.jpg",
-        "size": 1048576,
-        "lastModified": "2024-01-01T00:00:00.000Z",
-        "url": "https://presigned-url.com"
-      }
-    ],
-    "totalFiles": 1,
-    "totalSize": 1048576
-  }
-}
-```
-
-#### Get File Download URL
-- **GET** `/storage/files/:fileName`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Get presigned download URL for a file. Looks for files in the appropriate folder based on authentication method.
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "File URL generated successfully",
-  "data": {
-    "fileName": "example.jpg",
-    "url": "https://presigned-url.com",
-    "size": 1048576,
-    "lastModified": "2024-01-01T00:00:00.000Z",
-    "contentType": "image/jpeg"
-  }
-}
-```
-
-#### Get File Metadata
-- **GET** `/storage/files/:fileName/metadata`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Get detailed file metadata. Accesses files from the appropriate folder based on authentication method.
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "File metadata retrieved successfully",
-  "data": {
-    "fileName": "example.jpg",
-    "key": "users/user_id/example.jpg",
-    "size": 1048576,
-    "sizeFormatted": "1.00 MB",
-    "lastModified": "2024-01-01T00:00:00.000Z",
-    "contentType": "image/jpeg",
-    "downloadUrl": "https://presigned-url.com",
-    "sharingEnabled": true
-  }
-}
-```
-
-#### Delete File
-- **DELETE** `/storage/files/:fileName`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Delete a file from the appropriate storage folder based on authentication method.
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "File deleted successfully",
-  "data": {
-    "fileName": "example.jpg"
-  }
-}
-```
-
-#### Bulk Delete Files
-- **POST** `/storage/files/bulk-delete`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Delete multiple files at once from the appropriate storage folder based on authentication method.
-- **Body:**
-```json
-{
-  "fileNames": ["file1.jpg", "file2.jpg", "file3.jpg"]
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Bulk delete completed: 2 succeeded, 1 failed",
-  "data": {
-    "results": [
-      {
-        "fileName": "file1.jpg",
-        "success": true,
-        "size": 1048576
-      },
-      {
-        "fileName": "file2.jpg",
-        "success": true,
-        "size": 2097152
-      },
-      {
-        "fileName": "file3.jpg",
-        "success": false,
-        "error": "File not found"
-      }
-    ],
-    "summary": {
-      "totalFiles": 3,
-      "successCount": 2,
-      "failCount": 1,
-      "totalSizeDeleted": 3145728,
-      "totalSizeDeletedFormatted": "3.00 MB"
-    }
-  }
-}
-```
-
-#### Get Storage Usage
-- **GET** `/storage/usage`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Get storage usage statistics with quota info for the authenticated user/API key's storage space.
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Storage usage retrieved successfully",
-  "data": {
-    "totalBytes": "1048576",
-    "totalSizeGB": 0.00,
-    "objectCount": 5,
-    "lastUpdated": "2024-01-01T00:00:00.000Z",
-    "quota": {
-      "maxBytes": "1073741824",
-      "maxSizeGB": 1.00,
-      "maxObjects": 1000
-    },
-    "usagePercentage": {
-      "bytes": 0.1,
-      "objects": 0.5
-    }
-  }
-}
-```
-
-#### Get Storage Analytics
-- **GET** `/storage/analytics`
-- **Auth:** Required (JWT or API Key)
-- **Description:** Get detailed storage analytics for the authenticated user/API key's storage space.
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Storage analytics retrieved successfully",
-  "data": {
-    "summary": {
-      "totalFiles": 10,
-      "totalSize": 10485760,
-      "totalSizeFormatted": "10.00 MB",
-      "quotaUsagePercentage": {
-        "bytes": 1.0,
-        "objects": 1.0
-      }
-    },
-    "fileTypeBreakdown": [
-      {
-        "category": "Images",
-        "count": 5,
-        "totalSize": 5242880,
-        "totalSizeFormatted": "5.00 MB",
-        "percentage": 50
-      },
-      {
-        "category": "Documents",
-        "count": 3,
-        "totalSize": 3145728,
-        "totalSizeFormatted": "3.00 MB",
-        "percentage": 30
-      }
-    ],
-    "recentFiles": [
-      {
-        "fileName": "recent.jpg",
-        "size": 1048576,
-        "sizeFormatted": "1.00 MB",
-        "lastModified": "2024-01-01T00:00:00.000Z",
-        "category": "Images"
-      }
-    ]
-  }
-}
-```
-
 ### API Key Management
 
-#### Generate API Key
-- **POST** `/apikeys`
-- **Auth:** Required + Email Verification Required
-- **Description:** Generate a new API key pair. Automatically creates an isolated S3 storage folder at `apikeys/{accessKeyId}/` for complete storage separation.
-- **Body:**
-```json
-{
-  "name": "My API Key",
-  "tierId": "tier_id_optional"
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "API key created successfully",
-  "data": {
-    "id": "key_id",
-    "accessKeyId": "pk_abc123def456",
-    "secretKey": "sk_xyz789uvw012",
-    "name": "My API Key",
-    "createdAt": "2024-01-01T00:00:00.000Z"
-  }
-}
-```
-
-**Note:** The response includes both `accessKeyId` and `secretKey`. Store these securely as the secret key cannot be retrieved again. The system automatically provisions an isolated S3 folder for this API key.
-
 #### List API Keys
-- **GET** `/apikeys`
-- **Auth:** Required + Email Verification Required
-- **Description:** List user's API keys (secrets hidden)
+- **GET** `/apiKeys/`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get all API keys for the current user
 - **Response:**
 ```json
 {
   "success": true,
   "message": "API keys retrieved successfully",
-  "data": {
-    "apiKeys": [
-      {
-        "id": "key_id",
-        "accessKeyId": "access_key",
-        "name": "My API Key",
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "lastUsedAt": "2024-01-01T12:00:00.000Z"
-      }
-    ]
-  }
+  "data": [
+    {
+      "id": "key_id",
+      "apiAccessKeyId": "access_key_id",
+      "name": "My API Key",
+      "isActive": true,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": "2024-01-02T00:00:00.000Z",
+      "revokedAt": null
+    }
+  ]
 }
 ```
 
 #### Get API Key Details
-- **GET** `/apikeys/:id`
-- **Auth:** Required + Email Verification Required
-- **Description:** Get specific API key details
+- **GET** `/apiKeys/:id`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get detailed information about a specific API key
 - **Response:**
 ```json
 {
   "success": true,
   "message": "API key retrieved successfully",
   "data": {
-    "apiKey": {
-      "id": "key_id",
-      "accessKeyId": "access_key",
-      "name": "My API Key",
-      "isActive": true,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "lastUsedAt": "2024-01-01T12:00:00.000Z"
-    }
+    "id": "key_id",
+    "apiAccessKeyId": "access_key_id",
+    "name": "My API Key",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "lastUsedAt": "2024-01-02T00:00:00.000Z",
+    "revokedAt": null
   }
 }
 ```
 
 #### Revoke API Key
-- **DELETE** `/apikeys/:id`
-- **Auth:** Required + Email Verification Required
-- **Description:** Revoke an API key
+- **DELETE** `/apiKeys/:id`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Revoke/deactivate an API key
 - **Response:**
 ```json
 {
   "success": true,
   "message": "API key revoked successfully",
-  "data": {}
-}
-```
-
-### Billing Management
-
-#### Get Billing Plans
-- **GET** `/billing/plans`
-- **Auth:** Required
-- **Description:** Get available billing plans
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Billing plans retrieved successfully",
   "data": {
-    "plans": [
-      {
-        "id": "plan_free",
-        "name": "Free",
-        "monthlyQuotaGB": 1,
-        "maxObjects": 1000,
-        "priceCents": 0,
-        "currency": "usd",
-        "trialDays": 30,
-        "features": [
-          "1GB storage",
-          "1000 objects",
-          "API access",
-          "File sharing",
-          "Basic features"
-        ]
-      }
-    ]
-  }
-}
-```
-
-#### Get User Subscription
-- **GET** `/billing/subscription`
-- **Auth:** Required
-- **Description:** Get user's current subscription
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Subscription retrieved successfully",
-  "data": {
-    "subscription": {
-      "id": "sub_id",
-      "userId": "user_id",
-      "planId": "plan_free",
-      "status": "ACTIVE",
-      "currentPeriodStart": "2024-01-01T00:00:00.000Z",
-      "currentPeriodEnd": "2024-02-01T00:00:00.000Z"
-    }
-  }
-}
-```
-
-#### Create Subscription
-- **POST** `/billing/subscription`
-- **Auth:** Required
-- **Description:** Create a new subscription
-- **Body:**
-```json
-{
-  "planId": "plan_id"
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Subscription created successfully",
-  "data": {
-    "subscription": {
-      "id": "sub_id",
-      "userId": "user_id",
-      "planId": "plan_id",
-      "status": "ACTIVE",
-      "currentPeriodStart": "2024-01-01T00:00:00.000Z",
-      "currentPeriodEnd": "2024-02-01T00:00:00.000Z"
-    }
-  }
-}
-```
-
-#### Cancel Subscription
-- **POST** `/billing/subscription/cancel`
-- **Auth:** Required
-- **Description:** Cancel current subscription
-- **Body:**
-```json
-{
-  "subscriptionId": "sub_id"
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Subscription cancelled successfully",
-  "data": {
-    "subscription": {
-      "id": "sub_id",
-      "status": "CANCELLED",
-      "canceledAt": "2024-01-01T00:00:00.000Z"
-    }
-  }
-}
-```
-
-#### Get User Invoices
-- **GET** `/billing/invoices?limit=50`
-- **Auth:** Required
-- **Description:** Get user's invoices
-- **Query Parameters:**
-  - `limit`: Number of invoices to return (default: 50)
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Invoices retrieved successfully",
-  "data": {
-    "invoices": [
-      {
-        "id": "inv_id",
-        "userId": "user_id",
-        "amountCents": 0,
-        "currency": "usd",
-        "status": "PAID",
-        "description": "Free tier: Monthly subscription",
-        "paidAt": "2024-01-01T00:00:00.000Z",
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ],
-    "totalInvoices": 1
-  }
-}
-```
-
-#### Get Billing Summary
-- **GET** `/billing/summary`
-- **Auth:** Required
-- **Description:** Get comprehensive billing summary
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Billing summary retrieved successfully",
-  "data": {
-    "subscription": {
-      "id": "sub_id",
-      "planId": "plan_free",
-      "status": "ACTIVE"
-    },
-    "nextInvoiceAmount": 0,
-    "nextInvoiceDate": "2024-02-01T00:00:00.000Z",
-    "paymentMethodsCount": 2,
-    "creditsBalance": 999999
-  }
-}
-```
-
-### Payment Management
-
-#### Create Payment Intent
-- **POST** `/payments/intents`
-- **Auth:** Required
-- **Description:** Create a payment intent (stub implementation)
-- **Body:**
-```json
-{
-  "amountCents": 1000,
-  "currency": "usd",
-  "provider": "STRIPE",
-  "metadata": {}
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Payment intent created successfully",
-  "data": {
-    "paymentIntent": {
-      "id": "pi_stub_123456789",
-      "amountCents": 1000,
-      "currency": "usd",
-      "status": "PENDING",
-      "paymentUrl": "https://stub-payment-gateway.com/pay/123456789"
-    }
-  }
-}
-```
-
-#### Process Payment
-- **POST** `/payments/process`
-- **Auth:** Required
-- **Description:** Process a payment (stub implementation)
-- **Body:**
-```json
-{
-  "paymentIntentId": "pi_stub_123456789",
-  "paymentMethodId": "pm_stub_card"
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Payment processed successfully",
-  "data": {
-    "result": {
-      "success": true,
-      "transactionId": "txn_stub_123456789",
-      "status": "PAID",
-      "amountCents": 0,
-      "currency": "usd"
-    }
-  }
-}
-```
-
-#### Get Payment Methods
-- **GET** `/payments/methods`
-- **Auth:** Required
-- **Description:** Get user's payment methods (stub implementation)
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Payment methods retrieved successfully",
-  "data": {
-    "paymentMethods": [
-      {
-        "id": "pm_stub_card",
-        "type": "CARD",
-        "provider": "STRIPE",
-        "isDefault": true,
-        "metadata": {
-          "last4": "4242",
-          "brand": "visa",
-          "expiryMonth": 12,
-          "expiryYear": 2030
-        }
-      }
-    ]
-  }
-}
-```
-
-#### Add Payment Method
-- **POST** `/payments/methods`
-- **Auth:** Required
-- **Description:** Add a payment method (stub implementation)
-- **Body:**
-```json
-{
-  "type": "CARD",
-  "provider": "STRIPE",
-  "metadata": {
-    "cardToken": "tok_123456789"
-  }
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Payment method added successfully",
-  "data": {
-    "paymentMethod": {
-      "id": "pm_stub_123456789",
-      "type": "CARD",
-      "provider": "STRIPE",
-      "isDefault": false
-    }
-  }
-}
-```
-
-#### Get Payment History
-- **GET** `/payments/history?limit=50`
-- **Auth:** Required
-- **Description:** Get payment transaction history
-- **Query Parameters:**
-  - `limit`: Number of transactions to return (default: 50)
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Payment history retrieved successfully",
-  "data": {
-    "payments": [
-      {
-        "success": true,
-        "transactionId": "txn_id",
-        "status": "PAID",
-        "amountCents": 0,
-        "currency": "usd"
-      }
-    ],
-    "totalPayments": 1
-  }
-}
-```
-
-### Credit Management
-
-#### Get Credit Balance
-- **GET** `/credits/balance`
-- **Auth:** Required
-- **Description:** Get user's credit balance
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Credit balance retrieved successfully",
-  "data": {
-    "balance": {
-      "totalCreditsUSD": 999999,
-      "currency": "usd"
-    }
-  }
-}
-```
-
-#### Add Credits
-- **POST** `/credits/add`
-- **Auth:** Required
-- **Description:** Add credits to user account
-- **Body:**
-```json
-{
-  "amountCents": 1000,
-  "source": "payment",
-  "metadata": {}
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Credits added successfully",
-  "data": {
-    "transaction": {
-      "id": "credit_id",
-      "amountCents": 1000,
-      "currency": "usd",
-      "source": "payment",
-      "createdAt": "2024-01-01T00:00:00.000Z"
-    }
-  }
-}
-```
-
-#### Check Sufficient Credits
-- **GET** `/credits/check?amount=1000`
-- **Auth:** Required
-- **Description:** Check if user has sufficient credits
-- **Query Parameters:**
-  - `amount`: Amount in cents to check
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Credit check completed",
-  "data": {
-    "hasSufficientCredits": true,
-    "requiredAmountCents": 1000
-  }
-}
-```
-
-#### Get Credit History
-- **GET** `/credits/history?limit=50`
-- **Auth:** Required
-- **Description:** Get credit transaction history
-- **Query Parameters:**
-  - `limit`: Number of transactions to return (default: 50)
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Credit history retrieved successfully",
-  "data": {
-    "transactions": [
-      {
-        "id": "credit_id",
-        "amountCents": 1000,
-        "currency": "usd",
-        "source": "payment",
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ],
-    "totalTransactions": 1
-  }
-}
-```
-
-### Tier Management
-
-#### Get Available Tiers
-- **GET** `/tiers`
-- **Auth:** Required
-- **Description:** Get publicly available tiers
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Tiers retrieved successfully",
-  "data": {
-    "tiers": [
-      {
-        "id": "tier_free",
-        "name": "Free",
-        "monthlyQuotaGB": 1,
-        "maxObjects": 1000,
-        "priceCents": 0,
-        "description": "Free tier for everyone",
-        "isPublic": true
-      }
-    ]
-  }
-}
-```
-
-#### Request Tier Upgrade
-- **POST** `/tier-requests`
-- **Auth:** Required
-- **Description:** Request a tier upgrade
-- **Body:**
-```json
-{
-  "tierId": "tier_pro",
-  "reason": "Need more storage for my project"
-}
-```
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Tier request created successfully",
-  "data": {
-    "tierRequest": {
-      "id": "request_id",
-      "userId": "user_id",
-      "tierId": "tier_pro",
-      "reason": "Need more storage for my project",
-      "status": "PENDING",
-      "createdAt": "2024-01-01T00:00:00.000Z"
-    }
-  }
-}
-```
-
-#### Get User's Tier Requests
-- **GET** `/tier-requests`
-- **Auth:** Required
-- **Description:** Get user's tier requests
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Tier requests retrieved successfully",
-  "data": {
-    "tierRequests": [
-      {
-        "id": "request_id",
-        "tierId": "tier_pro",
-        "reason": "Need more storage",
-        "status": "PENDING",
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ]
-  }
-}
-```
-
-### Public Endpoints
-
-#### Health Check
-- **GET** `/open/health`
-- **Auth:** Not required
-- **Description:** Check API health status
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Pockity API is running",
-  "data": {
-    "status": "healthy",
-    "timestamp": "2024-01-01T00:00:00.000Z",
-    "version": "1.0.0"
+    "id": "key_id",
+    "revokedAt": "2024-01-02T00:00:00.000Z"
   }
 }
 ```
 
 ### API Key Request Management
 
+#### Get User's API Key Requests
+- **GET** `/apiKeys/request`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get all API key requests for the current user
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key requests retrieved successfully",
+  "data": [
+    {
+      "id": "request_id",
+      "requestType": "CREATE",
+      "keyName": "My New API Key",
+      "requestedStorageGB": 5,
+      "requestedObjects": 10000,
+      "reason": "Need storage for my application data",
+      "status": "PENDING",
+      "reviewerComment": null,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "reviewedAt": null
+    }
+  ]
+}
+```
+
 #### Create API Key Request
-- **POST** `/api-key-requests`
-- **Auth:** Required (JWT)
-- **Description:** Request custom storage quota for API key creation
+- **POST** `/apiKeys/request/create`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Request creation of a new API key with specific quotas
 - **Body:**
 ```json
 {
+  "keyName": "My New API Key",
   "requestedStorageGB": 5,
   "requestedObjects": 10000,
-  "reason": "Need additional storage for my application data backup"
+  "reason": "Need additional storage for my application data backup and file sharing features"
 }
 ```
 - **Response:**
 ```json
 {
   "success": true,
-  "message": "API key request submitted successfully. Admin will review your request.",
+  "message": "API key creation request submitted successfully",
   "data": {
     "request": {
       "id": "request_id",
+      "requestType": "CREATE",
+      "keyName": "My New API Key",
       "requestedStorageGB": 5,
       "requestedObjects": 10000,
-      "reason": "Need additional storage for my application data backup",
+      "reason": "Need additional storage for my application data backup and file sharing features",
       "status": "PENDING",
       "createdAt": "2024-01-01T00:00:00.000Z"
     }
@@ -1211,36 +423,43 @@ curl -X GET /storage/files \
 }
 ```
 
-#### Get User's API Key Requests
-- **GET** `/api-key-requests`
-- **Auth:** Required (JWT)
-- **Description:** Get all API key requests for the authenticated user
+#### Create API Key Upgrade Request
+- **POST** `/apiKeys/request/upgrade`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Request quota upgrade for an existing API key
+- **Body:**
+```json
+{
+  "apiAccessKeyId": "existing_access_key_id",
+  "requestedStorageGB": 10,
+  "requestedObjects": 20000,
+  "reason": "Current quota is insufficient for growing application needs"
+}
+```
 - **Response:**
 ```json
 {
   "success": true,
-  "message": "API key requests retrieved successfully",
+  "message": "API key upgrade request submitted successfully",
   "data": {
-    "requests": [
-      {
-        "id": "request_id",
-        "requestedStorageGB": 5,
-        "requestedObjects": 10000,
-        "reason": "Need additional storage for my application data backup",
-        "status": "APPROVED",
-        "reviewerComment": "Approved for legitimate business use",
-        "reviewedAt": "2024-01-02T00:00:00.000Z",
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ]
+    "request": {
+      "id": "request_id",
+      "requestType": "UPGRADE",
+      "apiAccessKeyId": "existing_access_key_id",
+      "requestedStorageGB": 10,
+      "requestedObjects": 20000,
+      "reason": "Current quota is insufficient for growing application needs",
+      "status": "PENDING",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
   }
 }
 ```
 
-#### Get Specific API Key Request
-- **GET** `/api-key-requests/:id`
-- **Auth:** Required (JWT)
-- **Description:** Get details of a specific API key request
+#### Get API Key Request Details
+- **GET** `/apiKeys/request/:id`
+- **Auth:** Required (JWT + Email Verification)
+- **Description:** Get detailed information about a specific API key request
 - **Response:**
 ```json
 {
@@ -1249,24 +468,404 @@ curl -X GET /storage/files \
   "data": {
     "request": {
       "id": "request_id",
+      "requestType": "CREATE",
+      "keyName": "My New API Key",
       "requestedStorageGB": 5,
       "requestedObjects": 10000,
       "reason": "Need additional storage for my application data backup",
       "status": "APPROVED",
       "reviewerComment": "Approved for legitimate business use",
-      "reviewedAt": "2024-01-02T00:00:00.000Z",
-      "createdAt": "2024-01-01T00:00:00.000Z"
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "reviewedAt": "2024-01-02T00:00:00.000Z"
     }
   }
+}
+```
+
+### File Storage
+
+**Note:** All storage endpoints require API key authentication only. JWT authentication is not supported for storage operations.
+
+#### Upload File
+- **POST** `/storage/upload`
+- **Auth:** Required (API Key only)
+- **Description:** Upload a file to storage
+- **Content-Type:** `multipart/form-data`
+- **Body:** Form data with file field
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "File uploaded successfully",
+  "data": {
+    "file": {
+      "fileName": "document.pdf",
+      "originalName": "my-document.pdf",
+      "size": 1048576,
+      "contentType": "application/pdf",
+      "uploadedAt": "2024-01-01T00:00:00.000Z",
+      "downloadUrl": "https://s3.amazonaws.com/bucket/apikeys/access_key_id/document.pdf"
+    },
+    "usage": {
+      "totalFiles": 124,
+      "totalSizeBytes": 5368709120,
+      "quotaUsagePercentage": {
+        "storage": 50.2,
+        "objects": 1.24
+      }
+    }
+  }
+}
+```
+
+#### List Files
+- **GET** `/storage/files`
+- **Auth:** Required (API Key only)
+- **Description:** List all files in storage
+- **Query Parameters:**
+  - `limit` (optional): Number of files to return (default: 50, max: 100)
+  - `offset` (optional): Number of files to skip (default: 0)
+  - `search` (optional): Search files by name
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Files retrieved successfully",
+  "data": {
+    "files": [
+      {
+        "fileName": "document.pdf",
+        "originalName": "my-document.pdf",
+        "size": 1048576,
+        "contentType": "application/pdf",
+        "uploadedAt": "2024-01-01T00:00:00.000Z",
+        "lastModified": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "meta": {
+      "total": 124,
+      "limit": 50,
+      "offset": 0,
+      "hasMore": true
+    }
+  }
+}
+```
+
+#### Get File
+- **GET** `/storage/files/:fileName`
+- **Auth:** Required (API Key only)
+- **Description:** Get presigned URL for file download
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "File URL generated successfully",
+  "data": {
+    "fileName": "document.pdf",
+    "downloadUrl": "https://s3.amazonaws.com/bucket/apikeys/access_key_id/document.pdf?X-Amz-Algorithm=...",
+    "expiresIn": 3600
+  }
+}
+```
+
+#### Get File Metadata
+- **GET** `/storage/files/:fileName/metadata`
+- **Auth:** Required (API Key only)
+- **Description:** Get detailed metadata for a specific file
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "File metadata retrieved successfully",
+  "data": {
+    "file": {
+      "fileName": "document.pdf",
+      "originalName": "my-document.pdf",
+      "size": 1048576,
+      "contentType": "application/pdf",
+      "uploadedAt": "2024-01-01T00:00:00.000Z",
+      "lastModified": "2024-01-01T00:00:00.000Z",
+      "category": "document",
+      "extension": "pdf"
+    }
+  }
+}
+```
+
+#### Delete File
+- **DELETE** `/storage/files/:fileName`
+- **Auth:** Required (API Key only)
+- **Description:** Delete a specific file
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "File deleted successfully",
+  "data": {
+    "fileName": "document.pdf",
+    "deletedAt": "2024-01-02T00:00:00.000Z",
+    "sizeFreed": 1048576
+  }
+}
+```
+
+#### Bulk Delete Files
+- **POST** `/storage/files/bulk-delete`
+- **Auth:** Required (API Key only)
+- **Description:** Delete multiple files at once
+- **Body:**
+```json
+{
+  "fileNames": ["file1.pdf", "file2.jpg", "file3.docx"]
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk delete completed",
+  "data": {
+    "deleted": ["file1.pdf", "file2.jpg"],
+    "failed": [
+      {
+        "fileName": "file3.docx",
+        "reason": "File not found"
+      }
+    ],
+    "summary": {
+      "totalRequested": 3,
+      "successfullyDeleted": 2,
+      "failed": 1,
+      "spaceFreed": 2097152
+    }
+  }
+}
+```
+
+#### Get Storage Usage
+- **GET** `/storage/usage`
+- **Auth:** Required (API Key only)
+- **Description:** Get current storage usage and quota information
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Storage usage retrieved successfully",
+  "data": {
+    "usage": {
+      "bytesUsed": 5368709120,
+      "objects": 124,
+      "lastUpdated": "2024-01-02T00:00:00.000Z"
+    },
+    "quota": {
+      "maxBytes": 10737418240,
+      "maxObjects": 10000,
+      "canUpload": true,
+      "quotaExceeded": false
+    },
+    "usagePercentage": {
+      "bytes": 50.0,
+      "objects": 1.24
+    }
+  }
+}
+```
+
+#### Get Storage Analytics
+- **GET** `/storage/analytics`
+- **Auth:** Required (API Key only)
+- **Description:** Get detailed storage analytics and insights
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Storage analytics retrieved successfully",
+  "data": {
+    "overview": {
+      "totalFiles": 124,
+      "totalSizeGB": 5.0,
+      "averageFileSize": 41943040,
+      "largestFile": {
+        "fileName": "video.mp4",
+        "size": 104857600
+      }
+    },
+    "fileTypes": {
+      "documents": { "count": 45, "sizeBytes": 2147483648 },
+      "images": { "count": 67, "sizeBytes": 1073741824 },
+      "videos": { "count": 8, "sizeBytes": 1610612736 },
+      "others": { "count": 4, "sizeBytes": 536870912 }
+    },
+    "recentFiles": [
+      {
+        "fileName": "recent-upload.pdf",
+        "size": 1048576,
+        "uploadedAt": "2024-01-02T00:00:00.000Z"
+      }
+    ],
+    "quota": {
+      "usagePercentage": 50.0,
+      "remainingGB": 5.0,
+      "daysUntilFull": 45
+    }
+  }
+}
+```
+
+### Admin Dashboard
+
+**Note:** All admin endpoints require JWT authentication with admin role.
+
+#### Get System Health
+- **GET** `/admin/health`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get system health and statistics
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "System health retrieved successfully",
+  "data": {
+    "system": {
+      "status": "healthy",
+      "uptime": 86400,
+      "timestamp": "2024-01-02T00:00:00.000Z"
+    },
+    "statistics": {
+      "users": {
+        "total": 150,
+        "verified": 120,
+        "admins": 2,
+        "recent": 15
+      },
+      "apiKeys": {
+        "total": 89,
+        "active": 67,
+        "revoked": 22,
+        "utilizationRate": "75.28"
+      },
+      "requests": {
+        "pending": 5,
+        "approved": 45,
+        "rejected": 8,
+        "total": 58
+      }
+    }
+  }
+}
+```
+
+#### Get User Analytics
+- **GET** `/admin/users`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get detailed user analytics
+- **Query Parameters:**
+  - `limit` (optional): Number of users to return (default: 50)
+  - `offset` (optional): Number of users to skip (default: 0)
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "User analytics retrieved successfully",
+  "data": [
+    {
+      "user": {
+        "id": "user_id",
+        "email": "user@example.com",
+        "name": "John Doe",
+        "role": "USER",
+        "emailVerified": true,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      },
+      "apiKeys": {
+        "total": 2,
+        "active": 1,
+        "revoked": 1
+      },
+      "requests": {
+        "total": 3,
+        "pending": 0,
+        "approved": 2,
+        "rejected": 1
+      },
+      "activity": {
+        "lastLogin": "2024-01-02T00:00:00.000Z",
+        "totalLogins": 15
+      }
+    }
+  ]
+}
+```
+
+#### Get API Key Overview
+- **GET** `/admin/api-keys`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get comprehensive API key overview for all users
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "API key overview retrieved successfully",
+  "data": [
+    {
+      "user": {
+        "id": "user_id",
+        "email": "user@example.com",
+        "name": "John Doe"
+      },
+      "apiKeys": [
+        {
+          "id": "key_id",
+          "accessKeyId": "access_key_id",
+          "name": "Production API",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "lastUsedAt": "2024-01-02T00:00:00.000Z",
+          "revokedAt": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Get Audit Logs
+- **GET** `/admin/audit-logs`
+- **Auth:** Required (JWT + Admin)
+- **Description:** Get system audit logs
+- **Query Parameters:**
+  - `limit` (optional): Number of logs to return (default: 50)
+  - `offset` (optional): Number of logs to skip (default: 0)
+  - `action` (optional): Filter by specific action type
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Audit logs retrieved successfully",
+  "data": [
+    {
+      "id": "log_id",
+      "action": "USER_LOGIN",
+      "userId": "user_id",
+      "apiAccessKeyId": null,
+      "detail": "User logged in successfully",
+      "metadata": {
+        "userAgent": "Mozilla/5.0...",
+        "ipAddress": "192.168.1.1"
+      },
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ]
 }
 ```
 
 ### Admin API Key Request Management
 
 #### Get All API Key Requests (Admin)
-- **GET** `/api-key-requests/admin/all`
+- **GET** `/apiKeys/request/admin/all`
 - **Auth:** Required (JWT + Admin)
-- **Description:** Get all API key requests with user information
+- **Description:** Get all API key requests across all users
 - **Query Parameters:**
   - `status` (optional): Filter by status (PENDING, APPROVED, REJECTED)
   - `limit` (optional): Number of results (default: 50)
@@ -1285,24 +884,29 @@ curl -X GET /storage/files \
           "email": "user@example.com",
           "name": "John Doe"
         },
+        "requestType": "CREATE",
+        "keyName": "Production API",
         "requestedStorageGB": 5,
         "requestedObjects": 10000,
         "reason": "Need additional storage for my application data backup",
         "status": "PENDING",
-        "createdAt": "2024-01-01T00:00:00.000Z"
+        "reviewerComment": null,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "reviewedAt": null
       }
     ],
-    "pagination": {
-      "limit": 50,
-      "offset": 0,
-      "total": 1
+    "meta": {
+      "total": 58,
+      "pending": 5,
+      "approved": 45,
+      "rejected": 8
     }
   }
 }
 ```
 
 #### Review API Key Request (Admin)
-- **PATCH** `/api-key-requests/admin/:id/review`
+- **PATCH** `/apiKeys/request/admin/review/:id`
 - **Auth:** Required (JWT + Admin)
 - **Description:** Approve or reject an API key request
 - **Body:**
@@ -1320,221 +924,120 @@ curl -X GET /storage/files \
   "data": {
     "request": {
       "id": "request_id",
-      "user": {
-        "id": "user_id",
-        "email": "user@example.com",
-        "name": "John Doe"
-      },
-      "requestedStorageGB": 5,
-      "requestedObjects": 10000,
-      "reason": "Need additional storage for my application data backup",
       "status": "APPROVED",
       "reviewerComment": "Approved for legitimate business use",
-      "reviewedAt": "2024-01-02T00:00:00.000Z",
-      "createdAt": "2024-01-01T00:00:00.000Z"
+      "reviewedAt": "2024-01-02T00:00:00.000Z"
+    },
+    "apiKey": {
+      "id": "key_id",
+      "accessKeyId": "new_access_key_id",
+      "secretKey": "new_secret_key",
+      "name": "Production API"
     }
   }
 }
 ```
 
-### Admin Dashboard
+### Public Endpoints
 
-#### Get System Health
-- **GET** `/admin/health`
-- **Auth:** Required (JWT + Admin)
-- **Description:** Get system health and statistics overview
+#### Health Check
+- **GET** `/open/health`
+- **Auth:** None
+- **Description:** Check if the API is running and healthy
 - **Response:**
 ```json
 {
   "success": true,
-  "message": "System health retrieved successfully",
+  "message": "Server is healthy",
   "data": {
-    "systemHealth": {
-      "status": "healthy",
-      "uptime": 1234567,
-      "timestamp": "2024-01-01T00:00:00.000Z"
-    },
-    "userStatistics": {
-      "total": 100,
-      "verified": 85,
-      "admins": 3,
-      "recentSignups": 12,
-      "verificationRate": "85.00"
-    },
-    "apiKeyStatistics": {
-      "total": 45,
-      "active": 42,
-      "revoked": 3,
-      "utilizationRate": "93.33"
-    },
-    "activityStatistics": {
-      "recentActions": 156,
-      "totalAuditLogs": 2345
-    },
-    "requestStatistics": {
-      "pending": 5,
-      "approved": 23,
-      "rejected": 2,
-      "total": 30
-    }
+    "status": "healthy",
+    "timestamp": "2024-01-02T00:00:00.000Z",
+    "version": "1.0.0"
   }
 }
 ```
 
-#### Get User Analytics
-- **GET** `/admin/users`
-- **Auth:** Required (JWT + Admin)
-- **Description:** Get detailed user analytics and management data
-- **Query Parameters:**
-  - `limit` (optional): Number of results (default: 50)
-  - `offset` (optional): Offset for pagination (default: 0)
-- **Response:**
+## Error Handling
+
+All errors follow a consistent format:
+
 ```json
 {
-  "success": true,
-  "message": "User analytics retrieved successfully",
-  "data": {
-    "users": [
-      {
-        "id": "user_id",
-        "email": "user@example.com",
-        "name": "John Doe",
-        "role": "USER",
-        "emailVerified": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "statistics": {
-          "apiKeys": {
-            "total": 3,
-            "active": 2,
-            "revoked": 1
-          },
-          "requests": {
-            "total": 2,
-            "pending": 0,
-            "approved": 2,
-            "rejected": 0
-          }
-        }
-      }
-    ],
-    "pagination": {
-      "limit": 50,
-      "offset": 0,
-      "total": 100
-    }
+  "success": false,
+  "message": "Error description",
+  "error": {
+    "code": "ERROR_CODE",
+    "details": "Additional error details",
+    "httpStatusCode": 400
   }
 }
 ```
 
-#### Get API Key Overview
-- **GET** `/admin/api-keys`
-- **Auth:** Required (JWT + Admin)
-- **Description:** Get API key overview and usage statistics
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "API key overview retrieved successfully",
-  "data": {
-    "overview": [
-      {
-        "user": {
-          "id": "user_id",
-          "email": "user@example.com",
-          "name": "John Doe"
-        },
-        "apiKeys": [
-          {
-            "id": "key_id",
-            "accessKeyId": "pk_abc123",
-            "name": "My API Key",
-            "isActive": true,
-            "createdAt": "2024-01-01T00:00:00.000Z",
-            "lastUsedAt": "2024-01-02T12:00:00.000Z",
-            "revokedAt": null
-          }
-        ]
-      }
-    ],
-    "summary": {
-      "totalUsers": 50,
-      "totalApiKeys": 120,
-      "activeKeys": 115,
-      "revokedKeys": 5
-    }
-  }
-}
-```
+### Common Error Status Codes
 
-#### Get System Audit Logs
-- **GET** `/admin/audit-logs`
-- **Auth:** Required (JWT + Admin)
-- **Description:** Get system audit logs with filtering capabilities
-- **Query Parameters:**
-  - `action` (optional): Filter by action type (e.g., USER_LOGIN, API_KEY_CREATE)
-  - `userId` (optional): Filter by user ID
-  - `limit` (optional): Number of results (default: 100)
-  - `offset` (optional): Offset for pagination (default: 0)
-- **Response:**
-```json
-{
-  "success": true,
-  "message": "Audit logs retrieved successfully",
-  "data": {
-    "auditLogs": [
-      {
-        "id": "log_id",
-        "action": "USER_LOGIN",
-        "apiAccessKeyId": null,
-        "actorId": "user_id",
-        "detail": "User user@example.com logged in successfully",
-        "metadata": {
-          "email": "user@example.com",
-          "ipAddress": "192.168.1.1",
-          "userAgent": "Mozilla/5.0...",
-          "timestamp": "2024-01-01T00:00:00.000Z"
-        },
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ],
-    "pagination": {
-      "limit": 100,
-      "offset": 0,
-      "total": 2345
-    },
-    "filters": {
-      "action": "USER_LOGIN",
-      "userId": null
-    }
-  }
-}
-```
+- **400 Bad Request:** Invalid input data or malformed request
+- **401 Unauthorized:** Missing or invalid authentication
+- **403 Forbidden:** Insufficient permissions
+- **404 Not Found:** Resource not found
+- **409 Conflict:** Resource already exists or conflict
+- **413 Payload Too Large:** File size exceeds limits
+- **429 Too Many Requests:** Rate limit exceeded
+- **500 Internal Server Error:** Server-side error
 
 ## Rate Limiting
 
-Currently, there are no rate limits implemented, but in a production environment, you should implement rate limiting to prevent abuse.
+- **Authentication endpoints:** 5 requests per minute per IP
+- **Storage uploads:** 100 requests per hour per API key
+- **General API calls:** 1000 requests per hour per authenticated user
 
 ## File Size Limits
 
-- Maximum file size: 100MB per upload
-- Supported file types: All file types are supported
+- **Maximum file size:** 100MB per file
+- **Supported formats:** All file types are supported
+- **Storage quotas:** Based on approved API key requests
 
-## Error Codes
+## SDK and Integration Examples
 
-- `INVALID_INPUT`: Validation error
-- `NOT_FOUND`: Resource not found
-- `UNAUTHORIZED`: Authentication required
-- `FORBIDDEN`: Insufficient permissions
-- `QUOTA_EXCEEDED`: Storage quota exceeded
-- `PAYMENT_REQUIRED`: Payment required for premium features
-- `REQUEST_EXISTS`: Duplicate request (e.g., pending API key request already exists)
-- `REQUEST_ALREADY_REVIEWED`: API key request has already been reviewed
-- `AUDIT_LOG_FAILURE`: Failed to create audit log entry (system error)
+### cURL Examples
 
-## SDKs and Libraries
+```bash
+# Register a new user
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123","name":"John Doe"}'
 
-Currently, there are no official SDKs, but the API is RESTful and can be used with any HTTP client.
+# Upload a file using API key
+curl -X POST http://localhost:8080/api/storage/upload \
+  -H "x-access-key-id: your_access_key_id" \
+  -H "x-secret-key: your_secret_key" \
+  -F "file=@document.pdf"
+
+# Get storage usage
+curl -X GET http://localhost:8080/api/storage/usage \
+  -H "x-access-key-id: your_access_key_id" \
+  -H "x-secret-key: your_secret_key"
+```
+
+### JavaScript/Node.js Example
+
+```javascript
+// Upload file with fetch
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+
+const response = await fetch('http://localhost:8080/api/storage/upload', {
+  method: 'POST',
+  headers: {
+    'x-access-key-id': 'your_access_key_id',
+    'x-secret-key': 'your_secret_key'
+  },
+  body: formData
+});
+
+const result = await response.json();
+console.log(result);
+```
 
 ## Support
 
-For support and questions, please contact the development team.
+For API support and questions, please contact the development team or check the repository documentation.
