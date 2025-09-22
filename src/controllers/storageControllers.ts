@@ -10,6 +10,7 @@ import {
   PockityErrorBadRequest,
 } from "../utils/response/PockityErrorClasses";
 import { formatFileSize } from "../utils/storageHelpher";
+import { sanitizeString } from "../utils/sanitizeString";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -45,7 +46,7 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { originalname, buffer, mimetype } = req.file;
-    const safeFileName = encodeURIComponent(originalname);
+    const safeFileName = sanitizeString(originalname);
     // Check user's quota limits here
     const quotaCheck = await UsageService.checkQuotaLimits(apiAccessKeyId, buffer.length);
     if (!quotaCheck.canUpload) {
@@ -61,7 +62,7 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
       });
     }
 
-    // Upload to S3 with appropriate prefix (API key or user-based)
+    // Upload to S3 with encoded file name
     const result = await S3Service.uploadFile({
       fileBuffer: buffer,
       contentType: mimetype,
@@ -114,7 +115,7 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
       await S3Service.deleteFile(key);
 
       // Update user's usage statistics in the database
-      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, fileName);
+      await UsageService.decrementUsage(apiAccessKeyId, fileInfo.size, sanitizeString(fileName));
 
       res.status(200).json(
         new PockityBaseResponse({

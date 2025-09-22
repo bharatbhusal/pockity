@@ -54,7 +54,9 @@ export const S3Service = {
    * Upload a file to S3 with user-specific or API key-specific prefix
    */
   async uploadFile(params: UploadFileParams): Promise<{ key: string; url: string }> {
+    // Key should be encoded ONCE before calling this function
     const { fileBuffer, contentType, key } = params;
+    console.log("Uploading file to S3 with key:", key);
 
     const command = new PutObjectCommand({
       Bucket: env.S3_BUCKET,
@@ -130,7 +132,7 @@ export const S3Service = {
           const { contentType } = await S3Service.getFileInfo(object.Key!);
 
           return {
-            key: object.Key!,
+            key: object.Key!, // key is already encoded
             sizeInBytes: object.Size!,
             lastModified: object.LastModified!,
             url,
