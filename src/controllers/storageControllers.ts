@@ -3,15 +3,13 @@ import { z } from "zod";
 import multer from "multer";
 import { S3Service } from "../services/s3Service";
 import { UsageService } from "../services/usageService";
-import { UserRepository } from "../repositories/userRepository";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import {
   PockityErrorInvalidInput,
   PockityErrorNotFound,
   PockityErrorBadRequest,
 } from "../utils/response/PockityErrorClasses";
-import { formatFileSize, getFileCategory } from "../utils/storageHelpher";
-import path from "path";
+import { formatFileSize } from "../utils/storageHelpher";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -47,6 +45,7 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
     }
 
     const { originalname, buffer, mimetype } = req.file;
+    const safeFileName = encodeURIComponent(originalname);
     // Check user's quota limits here
     const quotaCheck = await UsageService.checkQuotaLimits(apiAccessKeyId, buffer.length);
     if (!quotaCheck.canUpload) {
@@ -64,21 +63,20 @@ export const uploadFileController = async (req: Request, res: Response, next: Ne
 
     // Upload to S3 with appropriate prefix (API key or user-based)
     const result = await S3Service.uploadFile({
-      fileName: originalname,
       fileBuffer: buffer,
       contentType: mimetype,
-      apiAccessKeyId,
+      key: `${apiAccessKeyId}/${safeFileName}`,
     });
 
     // Update user's usage statistics in the database
-    await UsageService.incrementUsage(apiAccessKeyId, buffer.length, originalname);
+    await UsageService.incrementUsage(apiAccessKeyId, buffer.length, safeFileName);
 
     res.status(201).json(
       new PockityBaseResponse({
         success: true,
         message: "File uploaded successfully",
         data: {
-          fileName: originalname,
+          fileName: safeFileName,
           key: result.key,
           url: result.url,
           size: buffer.length,
@@ -135,6 +133,7 @@ export const deleteFileController = async (req: Request, res: Response, next: Ne
       throw error;
     }
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -275,7 +274,7 @@ export const getFileMetadataController = async (req: Request, res: Response, nex
           success: true,
           message: "File metadata retrieved successfully",
           data: {
-            fileName: fileName,
+            fileName,
             fileKey: key,
             size: fileInfo.size,
             sizeFormatted: formatFileSize(fileInfo.size),

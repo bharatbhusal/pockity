@@ -6,8 +6,23 @@ import {
   ListObjectsV2Command,
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
+import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
+
+export interface UploadFileParams {
+  key: string;
+  fileBuffer: Buffer;
+  contentType?: string;
+}
+
+export interface S3Object {
+  key: string;
+  sizeInBytes: number;
+  lastModified: Date;
+  url?: string;
+  contentType?: string;
+}
 
 // Initialize S3 client
 const s3Client = new S3Client({
@@ -21,19 +36,17 @@ const s3Client = new S3Client({
       : undefined,
 });
 
-export interface UploadFileParams {
-  fileName: string;
-  fileBuffer: Buffer;
-  contentType?: string;
-  apiAccessKeyId: string;
-}
+const cloudFrontClient = new CloudFrontClient({ region: env.AWS_REGION });
 
-export interface S3Object {
-  key: string;
-  sizeInBytes: number;
-  lastModified: Date;
-  url?: string;
-  contentType?: string;
+async function invalidateCloudFront(path: string) {
+  const command = new CreateInvalidationCommand({
+    DistributionId: env.CLOUDFRONT_DIST_ID,
+    InvalidationBatch: {
+      Paths: { Quantity: 1, Items: [path] },
+      CallerReference: `${Date.now()}`, // unique
+    },
+  });
+  await cloudFrontClient.send(command);
 }
 
 export const S3Service = {
@@ -41,10 +54,7 @@ export const S3Service = {
    * Upload a file to S3 with user-specific or API key-specific prefix
    */
   async uploadFile(params: UploadFileParams): Promise<{ key: string; url: string }> {
-    const { fileName, fileBuffer, contentType, apiAccessKeyId } = params;
-
-    // Create appropriate prefix to isolate storage
-    const key = `${apiAccessKeyId}/${fileName}`;
+    const { fileBuffer, contentType, key } = params;
 
     const command = new PutObjectCommand({
       Bucket: env.S3_BUCKET,
@@ -55,8 +65,9 @@ export const S3Service = {
 
     await s3Client.send(command);
 
-    // Generate a presigned URL for access
-    // const url = await this.getSignedUrl(key);
+    // Invalidate CloudFront cache for the uploaded file
+    await invalidateCloudFront(`/${key}`);
+
     const url = await this.getPermanentUrl(key);
 
     return { key, url };
@@ -72,6 +83,7 @@ export const S3Service = {
     });
 
     await s3Client.send(command);
+    await invalidateCloudFront(`/${key}`);
   },
 
   /**
@@ -90,7 +102,7 @@ export const S3Service = {
    * Get a permanent URL for a file
    */
   async getPermanentUrl(key: string): Promise<string> {
-    return `https://${env.S3_BUCKET}.s3.amazonaws.com/${key}`;
+    return `${env.CLOUDFRONT_URL}/${key}`;
   },
 
   /**
@@ -139,7 +151,6 @@ export const S3Service = {
       Bucket: env.S3_BUCKET,
       Key: key,
     });
-
     const response = await s3Client.send(command);
 
     return {
