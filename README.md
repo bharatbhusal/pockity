@@ -8,6 +8,7 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
 ## ✨ Features
 
 - 🔐 **Authentication & User Management**
+
   - Email/password authentication with JWT tokens
   - Complete user profile management (update profile, change password, account deletion)
   - Email verification via OTP system
@@ -16,6 +17,7 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
   - Complete audit logging for all critical user events
 
 - 🔑 **API Key Management with Admin Approval**
+
   - Request-based API key generation with custom quotas
   - Admin approval workflow for all API key requests
   - Multiple API key pairs per user with individual quotas
@@ -25,6 +27,7 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
   - Each API key gets its own storage namespace
 
 - 📂 **Advanced Storage Control**
+
   - All users share the same S3 bucket with intelligent prefix routing
   - **API Key Storage:** Isolated folders using `apikeys/{accessKeyId}/` for complete separation
   - Real-time quota enforcement before file uploads
@@ -38,6 +41,7 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
   - Enhanced file listing with size calculations
 
 - 📊 **Advanced Usage Tracking & Analytics**
+
   - Real-time usage tracking with quota percentage calculation
   - Storage analytics with file type breakdown
   - Recent files tracking
@@ -46,6 +50,7 @@ Inspired by Doraemon's infinite pocket, Pockity aims to give developers a **scal
   - Database-S3 synchronization for accurate usage data
 
 - 🛠 **Professional API-First Design**
+
   - Complete user account management endpoints
   - Enhanced file metadata endpoints
   - Storage analytics endpoints

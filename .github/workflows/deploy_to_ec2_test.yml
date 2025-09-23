@@ -1,9 +1,9 @@
-name: Host pockity server on EC2 using image in ECR for _test environment
+name: Host cogniFlow Frontend and Backend on EC2 using ECR for prod environment
 
 on:
   push:
     branches:
-      - _test
+      - test
 
 jobs:
   Build:
@@ -33,30 +33,22 @@ jobs:
         id: get-commit-hash
         run: echo "::set-output name=commit-hash::$(git rev-parse --short HEAD)"
 
-      # Step 5: Verify the build
-      - name: Verify Build
-        id: verify-build
+      # Step 5: Build, tag, and push the Backend Docker image to Amazon ECR
+      - name: Build, Tag, and Push Backend Docker Image to ECR
         run: |
-          echo "Verifying the build..."
-          npm install
-          npm run build
-          echo "Build verified successfully."
+          echo "Building FastAPI Backend Docker image with the latest commit hash tag and 'latest' tag..."
 
-      # Step 6: Build, tag, and push the Docker image to Amazon ECR
-      - name: Build, Tag, and Push Docker Image to ECR
-        run: |
-          echo "Building Docker image with the latest commit hash tag and 'latest' tag..."
+          # Build the Backend Docker image from the backend directory
+          cd Server
+          docker buildx build --platform linux/amd64 -f backend/Dockerfile -t ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME_TEST }}-backend:${{ steps.get-commit-hash.outputs.commit-hash }} -t ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME_TEST }}-backend:latest backend/
 
-          # Build the Docker image with both the commit hash and the 'latest' tag
-          docker buildx build --platform linux/amd64 -t ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME }}:${{ steps.get-commit-hash.outputs.commit-hash }} -t ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME }}:latest .
+          echo "Pushing Backend Docker image with the commit hash and latest tag to ECR..."
 
-          echo "Pushing Docker image with the commit hash and latest tag to ECR..."
+          # Push the Backend Docker image tagged with the commit hash
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME_TEST }}-backend:${{ steps.get-commit-hash.outputs.commit-hash }}
 
-          # Push the Docker image tagged with the commit hash
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME }}:${{ steps.get-commit-hash.outputs.commit-hash }}
-
-          # Push the Docker image tagged as 'latest'
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME }}:latest
+          # Push the Backend Docker image tagged as 'latest'
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME_TEST }}-backend:latest
 
       # Step 7: Setup SSH key for secure connection to EC2
       - name: Setup SSH Key
@@ -65,29 +57,45 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{secrets.EC2_IP}} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.AWS_EC2_IP_TEST }} >> ~/.ssh/known_hosts
           echo "SSH key setup completed."
 
-      # Step 8: Deploy the image to EC2
+      # Step 8: Deploy both frontend and backend to EC2
       - name: Deploy to EC2
         run: |
-          echo "Deploying to EC2..."
+          echo "Deploying CogniFlow Frontend and Backend to EC2..."
 
           # SSH into the EC2 instance and perform the deployment
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{secrets.EC2_IP}} "
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.AWS_EC2_IP_TEST }} "
             echo 'Logging into ECR...'
-            # Login to Amazon ECR to access the Docker image
             aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }};
             
+            echo 'Updating environment variables...'
+            export BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/${{ secrets.REPO_NAME_TEST }}-backend:latest
+            
             echo 'Cleaning up old Docker images...'
-            # Clean up old Docker images to free up space
             docker system prune -af;
             
-            echo 'Pulling the latest Docker image...'
-            # Pull the latest Docker image for the backend from ECR
-            docker compose pull
+            echo 'Pulling the latest Docker images...'
+            docker pull \$BACKEND_IMAGE
+            
+            echo 'Navigating to deployment directory...'
+            cd /home/ec2-user/
 
-            echo 'Running the Docker container with environment variables...'
-            # Pass environment variables only for the container's runtime
-            docker compose up -d
+            echo 'Stopping existing containers...'
+            docker-compose down
+            
+            echo 'Starting all containers with new images...'
+            BACKEND_IMAGE=\$BACKEND_IMAGE docker-compose up -d
+
+            echo 'Waiting for services to start...'
+            sleep 10
+            
+            echo 'Verifying deployment...'
+            docker-compose ps
+            
+            echo 'Testing API endpoints...'
+            curl -f http://localhost:8080/api/open/health || echo 'Backend health check failed'
+            
+            echo 'Deployment completed successfully!'
           "
