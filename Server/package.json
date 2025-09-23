@@ -37,9 +37,9 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.1",
-    "@types/jsonwebtoken": "^9.0.9",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "latest",
     "@typescript-eslint/parser": "latest",
