@@ -1,26 +1,43 @@
-# Use official Node.js 18 image as the base image
-FROM node:18-alpine
+# --------------------------
+# Stage 1: Build stage
+# --------------------------
+FROM node:18-alpine AS builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Install OpenSSL (needed for Prisma on Alpine)
-RUN apk update && apk add --no-cache openssl
+# Install OpenSSL (needed for Prisma)
+RUN apk update && apk add --no-cache openssl bash git
 
-# Copy package.json and package-lock.json first (for caching)
+# Copy package files
 COPY package.json package-lock.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production
+# Install all dependencies (dev + prod) for building
+RUN npm ci
 
-# Copy the rest of the application files
+# Copy source files
 COPY . .
 
-# Generate Prisma client (using your script)
+# Generate Prisma client
 RUN npm run prisma:generate
 
-# Build the app
+# Build TypeScript
 RUN npm run build
 
-# Expose the port that your server will run on (e.g., 8080)
+# --------------------------
+# Stage 2: Production stage
+# --------------------------
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+# Install only production dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
+
+# Copy compiled code from build stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Expose the port (optional, docker-compose handles it)
 EXPOSE 8080
