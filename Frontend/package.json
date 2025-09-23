@@ -1,0 +1,59 @@
+{
+  "name": "pockity-frontend",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "bharatbhusal <bharatbhusal78@gmail.com>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git@github-bharatbhusal:bharatbhusal/pockity.git"
+  },
+  "engines": {
+    "node": ">=20.x",
+    "npm": ">=9.x"
+  },
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --config ./prettier.config.mjs --check '*/*.{ts,tsx,css,json}'",
+    "format:fix": "prettier --config ./prettier.config.mjs --write '*/*.{ts,tsx,css,json}'"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.8.2",
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19",
+    "axios": "^1.12.2",
+    "dotenv": "^16.6.1",
+    "framer-motion": "^11.14.1",
+    "lodash": "^4.17.21",
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-colorful": "^5.6.1",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "react-redux": "^9.2.0",
+    "react-toastify": "^11.0.5",
+    "redux-persist": "^6.0.0",
+    "sharp": "^0.34.1",
+    "tailwind-clip-path": "^1.0.0",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/lodash": "^4.17.16",
+    "@types/node": "24.5.2",
+    "eslint": "^8",
+    "eslint-config-next": "15.0.4",
+    "postcss": "^8",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.5.14"
+  }
+}
