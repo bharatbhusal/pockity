@@ -23,4 +23,4 @@ RUN npm run prisma:generate
 RUN npm run build
 
 # Expose the port that your server will run on (e.g., 8080)
-EXPOSE 8081
+EXPOSE 8080
