@@ -4,6 +4,7 @@ import { requestSignIn } from "@/redux/apis/authRequest";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import Link from "next/link";
+import { env } from "@/config/env";
 
 export default function SignInPage() {
   const dispatch = useAppDispatch();
@@ -91,6 +92,13 @@ export default function SignInPage() {
             {step === "request" ? "Request OTP" : authLoading ? "Signing In..." : "Sign In"}
           </button>
         </form>
+        <Link
+          href={`${env.NEXT_PUBLIC_SERVER_URL}/api/auth/oauth-url`}
+          className="my-1 w-full rounded-md"
+          type="button"
+        >
+          Sign In with Google
+        </Link>
         <p className="mt-4 text-center">
           Don&apos;t have an account?{" "}
           <Link

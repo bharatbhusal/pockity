@@ -1,6 +1,5 @@
 import { handleAsyncAction } from "./asyncAction";
 import * as AuthApi from "../apis/authRequest";
-
 import { IUser } from "@/types/user";
 import { AuthActionTypes } from "@/types/auth";
 
@@ -14,7 +13,7 @@ export const verifySignIn = (payload: { email: string; password: string; otp: st
     true,
   );
 
-export const verifySignUp = (payload: { email: string; username: string; password: string; otp: string }) =>
+export const verifySignUp = (payload: { email: string; name: string; password: string; otp: string }) =>
   handleAsyncAction(
     () => AuthApi.verifySignUp(payload),
     AuthActionTypes.AUTH_START,

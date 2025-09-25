@@ -6,9 +6,10 @@ import { useAppDispatch } from "@/redux/store";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import Link from "next/link";
+import { env } from "@/config/env";
 
 const signUpSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters long"),
+  name: z.string().min(3, "Username must be at least 3 characters long"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
@@ -16,7 +17,7 @@ export default function SignUpPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [step, setStep] = useState<"request" | "verify">("request");
-  const [form, setForm] = useState({ email: "", username: "", password: "", otp: "" });
+  const [form, setForm] = useState({ email: "", name: "", password: "", otp: "" });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -29,16 +30,14 @@ export default function SignUpPage() {
       await requestSignUp(form.email);
       setStep("verify");
     } else {
-      // Validate username/password
-      const validationResult = signUpSchema.safeParse({ username: form.username, password: form.password });
+      // Validate name/password
+      const validationResult = signUpSchema.safeParse({ name: form.name, password: form.password });
       if (!validationResult.success) {
         toast.error(validationResult.error.errors[0].message);
         return;
       }
       // Verify OTP and sign up (dispatch verifySignUp)
-      await dispatch(
-        verifySignUp({ email: form.email, username: form.username, password: form.password, otp: form.otp }),
-      );
+      await dispatch(verifySignUp({ email: form.email, name: form.name, password: form.password, otp: form.otp }));
       router.replace("/auth/signIn");
     }
   };
@@ -80,9 +79,9 @@ export default function SignUpPage() {
               />
               <input
                 type="text"
-                name="username"
+                name="name"
                 placeholder="Username"
-                value={form.username}
+                value={form.name}
                 onChange={handleChange}
                 className="w-full rounded bg-gray-100 p-2"
                 required
@@ -115,6 +114,13 @@ export default function SignUpPage() {
             {step === "request" ? "Request OTP" : "Sign Up"}
           </button>
         </form>
+        <Link
+          href={`${env.NEXT_PUBLIC_SERVER_URL}/api/auth/oauth-url`}
+          className="my-1 w-full rounded-md"
+          type="button"
+        >
+          Sign In with Google
+        </Link>
         <p className="mt-4 text-center">
           Already have an account?{" "}
           <Link

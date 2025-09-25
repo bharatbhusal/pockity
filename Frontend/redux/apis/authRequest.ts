@@ -3,7 +3,7 @@ import API from "./axiosConfig";
 
 // Step 1: Request OTP for sign in
 export const requestSignIn = (email: string) =>
-  API.post("/auth/request-signin", { email, purpose: "signIn" })
+  API.post("/auth/request-login", { email })
     .then((response) => response.data)
     .catch((error) => {
       throw error;
@@ -11,7 +11,7 @@ export const requestSignIn = (email: string) =>
 
 // Step 2: Verify OTP and sign in
 export const verifySignIn = (payload: { email: string; password: string; otp: string }) =>
-  API.post("/auth/verify-signin", payload)
+  API.post("/auth/verify-login", payload)
     .then((response) => response.data)
     .catch((error) => {
       throw error;
@@ -19,15 +19,15 @@ export const verifySignIn = (payload: { email: string; password: string; otp: st
 
 // Step 1: Request OTP for sign up
 export const requestSignUp = (email: string) =>
-  API.post("/auth/request-signup", { email, purpose: "signUp" })
+  API.post("/auth/request-register", { email })
     .then((response) => response.data)
     .catch((error) => {
       throw error;
     });
 
 // Step 2: Verify OTP and sign up
-export const verifySignUp = (payload: { email: string; username: string; password: string; otp: string }) =>
-  API.post("/auth/verify-signup", payload)
+export const verifySignUp = (payload: { email: string; name: string; password: string; otp: string }) =>
+  API.post("/auth/verify-register", payload)
     .then((response) => response.data)
     .catch((error) => {
       throw error;
