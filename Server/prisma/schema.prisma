@@ -24,18 +24,31 @@ enum ApiKeyRequestStatus {
   REJECTED
 }
 
+enum AuthMethod {
+  PASSWORD
+  OAUTH
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
+}
+
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String     @id @default(cuid())
+  email         String     @unique
   name          String?
-  passwordHash  String
-  emailVerified Boolean  @default(false)
-  role          Role     @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  picture       String?
+  passwordHash  String?
+  authMethod    AuthMethod
+  googleId      String?    @unique
+  emailVerified Boolean    @default(false)
+  role          Role       @default(USER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   apiKeys        ApiKey[]
-  otp            Otp?
   apiKeyRequests ApiKeyRequest[]
 }
 
@@ -56,7 +69,6 @@ model ApiKey {
 
   currentUsage UsageCurrent?
   auditLogs    AuditLog[]
-  // apiKeyRequest ApiKeyRequest[]
 
   @@index([userId])
 }
@@ -85,11 +97,11 @@ model AuditLog {
 }
 
 model Otp {
-  id     String   @id @default(cuid())
-  otp    String   @default(cuid())
-  expiry DateTime
-  userId String   @unique
-  user   User     @relation(fields: [userId], references: [id])
+  id       String     @id @default(cuid())
+  otp_code String     @default(cuid())
+  email    String     @unique
+  purpose  OtpPurpose
+  expiry   DateTime
 }
 
 model ApiKeyRequest {
@@ -99,7 +111,6 @@ model ApiKeyRequest {
   requestType      ApiKeyRequestType   @default(CREATE)
   keyName          String?
   apiAccessKeyId   String?
-  // apiAccessKey     ApiKey?             @relation(fields: [apiAccessKeyId], references: [accessKeyId])
   requestedStorage BigInt
   requestedObjects Int
   reason           String?
