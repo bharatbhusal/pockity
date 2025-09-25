@@ -7,7 +7,6 @@ import { AuthRouter } from "./routes/authRoutes";
 import { ApiKeyRouter } from "./routes/apiKeyRoutes";
 import { StorageRouter } from "./routes/storageRoutes";
 import { UserRouter } from "./routes/userRoutes";
-import { OtpRouter } from "./routes/otpRoutes";
 import { AdminDashboardRouter } from "./routes/adminDashboardRoutes";
 
 const app = express();
@@ -23,7 +22,6 @@ app.use(express.json());
 
 app.use("/api/open", OpenRouter);
 app.use("/api/auth", AuthRouter);
-app.use("/api/otp", OtpRouter);
 app.use("/api/apiKeys", ApiKeyRouter);
 app.use("/api/storage", StorageRouter);
 app.use("/api/users", UserRouter);

@@ -27,6 +27,12 @@ const envSchema = z.object({
   SMTP_PORT: z.string(),
   SMTP_MAIL_ID: z.string().email(),
   SMTP_PASSWORD: z.string(),
+
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
+  GOOGLE_REDIRECT_URL: z.string().url(),
+
+  FRONTEND_URL: z.string().url(),
 });
 
 // Parse and validate environment variables

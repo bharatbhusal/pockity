@@ -1,16 +1,18 @@
+import { OtpPurpose } from "@prisma/client";
 import { prisma } from "../config/prisma";
 
 export const OtpRepository = {
   create: (data: any) => prisma.otp.create({ data }),
   findById: (id: string) => prisma.otp.findUnique({ where: { id } }),
-  findByUserId: (userId: string) => prisma.otp.findUnique({ where: { userId } }),
+  findByEmail: (email: string) => prisma.otp.findUnique({ where: { email } }),
+  findByEmailAndPurpose: (email: string, purpose: OtpPurpose) => prisma.otp.findUnique({ where: { email, purpose } }),
   update: (id: string, data: any) => prisma.otp.update({ where: { id }, data }),
-  updateByUserId: (userId: string, data: any) => prisma.otp.update({ where: { userId }, data }),
-  upsertByUserId: (userId: string, data: any) =>
+  updateByEmail: (email: string, data: any) => prisma.otp.update({ where: { email }, data }),
+  upsertByEmail: (email: string, data: any) =>
     prisma.otp.upsert({
-      where: { userId },
+      where: { email },
       update: data,
-      create: { ...data, userId },
+      create: { ...data, email },
     }),
   delete: (id: string) => prisma.otp.delete({ where: { id } }),
   list: () => prisma.otp.findMany(),

@@ -66,9 +66,9 @@ export const EmailService = {
     await transporter.sendMail(mailOptions);
   },
 
-  async sendOtpEmail(to: string, otp: string): Promise<void> {
-    const subject = "Email Verification - Pockity";
-    const text = `Your email verification OTP is: ${otp}. This OTP will expire in 10 minutes.`;
+  async sendOtpEmail(to: string, otp: string, purpose: string): Promise<void> {
+    const subject = "OTP - Pockity";
+    const text = `Your OTP for ${purpose} is: ${otp}. This OTP will expire in 10 minutes.`;
 
     await this.sendEmail(to, subject, text);
   },

@@ -12,17 +12,7 @@ export interface JwtPayload {
 
 export const jwtAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new PockityErrorAuthentication({
-        message: "Authentication token is required",
-        httpStatusCode: 401,
-      });
-    }
-
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
-
+    const token = req.cookies?.authToken;
     if (!token) {
       throw new PockityErrorAuthentication({
         message: "Authentication token is required",

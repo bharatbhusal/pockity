@@ -1,6 +1,7 @@
 import { OtpRepository } from "../repositories/otpRepository";
 import { EmailService } from "./emailService";
 import { PockityErrorBadRequest, PockityErrorNotFound } from "../utils/response/PockityErrorClasses";
+import { OtpPurpose } from "@prisma/client";
 
 export const OtpService = {
   generateOtp(): string {
@@ -15,22 +16,23 @@ export const OtpService = {
     return expiry;
   },
 
-  async sendOtp(userId: string, email: string): Promise<void> {
+  async sendOtp(email: string, purpose: string): Promise<void> {
     const otp = this.generateOtp();
     const expiry = this.getOtpExpiry();
 
     // Upsert OTP (create or update existing)
-    await OtpRepository.upsertByUserId(userId, {
-      otp,
+    await OtpRepository.upsertByEmail(email, {
+      otp_code: otp,
+      purpose,
       expiry,
     });
 
     // Send OTP email
-    await EmailService.sendOtpEmail(email, otp);
+    await EmailService.sendOtpEmail(email, otp, purpose);
   },
 
-  async verifyOtp(userId: string, otpCode: string): Promise<boolean> {
-    const otpRecord = await OtpRepository.findByUserId(userId);
+  async verifyOtp(email: string, otpCode: string, purpose: OtpPurpose): Promise<boolean> {
+    const otpRecord = await OtpRepository.findByEmailAndPurpose(email, purpose);
 
     if (!otpRecord) {
       throw new PockityErrorNotFound({
@@ -48,7 +50,7 @@ export const OtpService = {
     }
 
     // Check if OTP matches
-    if (otpRecord.otp !== otpCode) {
+    if (otpRecord.otp_code !== otpCode) {
       throw new PockityErrorBadRequest({
         message: "Invalid OTP. Please check and try again.",
         httpStatusCode: 400,
@@ -61,8 +63,8 @@ export const OtpService = {
     return true;
   },
 
-  async deleteOtp(userId: string): Promise<void> {
-    const otpRecord = await OtpRepository.findByUserId(userId);
+  async deleteOtp(email: string, purpose: OtpPurpose): Promise<void> {
+    const otpRecord = await OtpRepository.findByEmailAndPurpose(email, purpose);
     if (otpRecord) {
       await OtpRepository.delete(otpRecord.id);
     }
