@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-
+import cookieParser from "cookie-parser";
 import { errorHandler } from "./utils/response/errorHandler";
 import { OpenRouter } from "./routes/openRoutes";
 import { AuthRouter } from "./routes/authRoutes";
@@ -13,11 +13,14 @@ const app = express();
 
 app.use(
   cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: "*",
+    origin: "http://localhost:3000", // ✅ must be a string (not array) when credentials are used
+    credentials: true, // ✅ enable cookies/auth headers
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], // ✅ include OPTIONS for preflight
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"], // ✅ specify explicitly instead of "*"
   }),
 );
+
+app.use(cookieParser());
 app.use(express.json());
 
 app.use("/api/open", OpenRouter);
@@ -31,6 +34,7 @@ app.use(errorHandler);
 
 export { app as ExpressApplication };
 
+// Optional type augmentation
 declare global {
   namespace Express {
     interface Request {

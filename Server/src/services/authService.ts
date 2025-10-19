@@ -86,7 +86,7 @@ export const AuthService = {
     // Verify password
     if (!user.passwordHash) {
       throw new PockityErrorAuthentication({
-        message: "Not password found for this user",
+        message: "No password found for this user",
         httpStatusCode: 401,
       });
     }

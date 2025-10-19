@@ -140,3 +140,8 @@ vite.config.ts.timestamp-*
 .vscode
 
 docker-compose-*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride

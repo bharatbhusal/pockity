@@ -365,7 +365,7 @@ export const getUserApiKeyRequestsController = async (req: Request, res: Respons
       new PockityBaseResponse({
         success: true,
         message: "API key requests retrieved successfully",
-        data: { requests: formattedRequests },
+        data: formattedRequests,
       }),
     );
   } catch (error) {
