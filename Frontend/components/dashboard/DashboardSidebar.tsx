@@ -2,13 +2,14 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { Key, LayoutDashboard, Settings, LogOut, Menu, X, BarChart3, Shield } from "lucide-react";
+import { Key, LayoutDashboard, LogOut, Menu, X, BarChart3, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { GoogleOAuthButton } from "@/components/auth/GoogleOAuthButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +23,12 @@ const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "API Keys", href: "/dashboard/api-keys", icon: Key },
   { name: "Usage", href: "/dashboard/usage", icon: BarChart3 },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <>
@@ -68,11 +69,18 @@ export function DashboardSidebar() {
               return (
                 <Link
                   key={item.name}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
+                  href={user ? item.href : "#"}
+                  onClick={(e) => {
+                    if (!user) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setIsOpen(false);
+                  }}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
+                    !user && "cursor-not-allowed opacity-50",
+                    isActive && user
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
@@ -104,10 +112,17 @@ function DashboardUserSection() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
 
-  if (!user) return null;
-
   const isAdminRoute = pathname.startsWith("/admin");
-  const isAdmin = user.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN";
+
+  // If not authenticated, show Google OAuth button
+  if (!user) {
+    return (
+      <div className="border-t p-4">
+        <GoogleOAuthButton />
+      </div>
+    );
+  }
 
   return (
     <div className="border-t p-4">
@@ -145,15 +160,6 @@ function DashboardUserSection() {
               <DropdownMenuSeparator />
             </>
           )}
-
-          <DropdownMenuItem asChild>
-            <Link href="/dashboard/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
 
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
           <div className="px-2 py-1">

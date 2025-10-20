@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { data: summary, isLoading: isLoadingSummary } = useQuery({
     queryKey: ["account", "summary"],
     queryFn: async () => {
@@ -76,7 +78,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {summary?.user?.name}!</p>
+          <p className="text-muted-foreground">Welcome back, {user?.name}!</p>
         </div>
         <Button
           asChild

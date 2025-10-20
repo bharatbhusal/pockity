@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: api.auth.logout,
     onSuccess: () => {
       queryClient.clear();
-      router.push("/auth/signIn");
+      router.push("/");
     },
   });
 
@@ -79,7 +79,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: { children: R
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        router.push("/auth/signIn");
+        router.push("/");
       } else if (requireAdmin && !isAdmin) {
         router.push("/dashboard");
       }

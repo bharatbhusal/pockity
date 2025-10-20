@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, FileKey, LogOut, Menu, X, Activity, Settings, Shield, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, FileKey, LogOut, Menu, X, Activity, Shield, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -22,7 +22,7 @@ const navigation = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: FileKey },
   { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Audit Logs", href: "/admin/logs", icon: ScrollText },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
   { name: "System Stats", href: "/admin/stats", icon: Activity },
 ];
 
@@ -147,13 +147,6 @@ function AdminUserSection() {
             <Link href="/dashboard">
               <Shield className="mr-2 h-4 w-4" />
               User Dashboard
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild>
-            <Link href="/dashboard/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
             </Link>
           </DropdownMenuItem>
 

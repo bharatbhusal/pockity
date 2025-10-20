@@ -23,7 +23,7 @@ export default function OAuthCallbackPage() {
         router.push("/dashboard");
       } catch (error) {
         console.error("OAuth callback error:", error);
-        router.push("/auth/signIn");
+        router.push("/");
       }
     };
 

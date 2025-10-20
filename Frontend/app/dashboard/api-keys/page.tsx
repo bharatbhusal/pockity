@@ -155,7 +155,7 @@ export default function ApiKeysPage() {
   }
 
   const pendingRequests = requests?.filter((r) => !r.isActive) || [];
-
+  console.log(pendingRequests);
   return (
     <div className="space-y-6">
       {/* Header */}

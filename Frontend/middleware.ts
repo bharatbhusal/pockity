@@ -5,8 +5,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
-    pathname.startsWith("/auth/signIn") ||
-    pathname.startsWith("/auth/signUp") ||
+    pathname.startsWith("/") ||
     pathname.startsWith("/auth/google") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
@@ -21,7 +20,7 @@ export async function middleware(request: NextRequest) {
 
   const token = request.cookies.get("authToken")?.value;
   if (!token) {
-    return NextResponse.redirect(new URL("/auth/signIn", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
   return NextResponse.next();
 }

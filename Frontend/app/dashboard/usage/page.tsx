@@ -29,7 +29,7 @@ import { Progress } from "@/components/ui/progress";
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
 export default function UsagePage() {
-  const [selectedKeyId, setSelectedKeyId] = useState<string>("");
+  const [selectedKeyId, setSelectedKeyId] = useState<string>("all");
 
   const { data: apiKeys, isLoading: isLoadingKeys } = useQuery({
     queryKey: ["apiKeys"],
@@ -41,20 +41,11 @@ export default function UsagePage() {
 
   // Set default selected key
   const activeKeys = apiKeys?.filter((k) => k.isActive && !k.revokedAt) || [];
-  const currentKeyId = selectedKeyId || activeKeys[0]?.id || "";
+  const currentKeyId = selectedKeyId;
+  const isAllSelected = currentKeyId === "all";
 
   // Usage tracking not yet implemented in backend
   const isLoading = isLoadingKeys;
-
-  // TODO: Remove mock data once backend implements usage tracking
-  const mockUsageStats = {
-    requestsThisMonth: 1250,
-    storageUsed: 512000000, // bytes
-  };
-  const mockLimits = {
-    requestsPerMonth: 10000,
-    storageLimit: 5368709120, // 5GB in bytes
-  };
 
   // Mock data for demonstration
   const dailyRequestsData = [
@@ -111,7 +102,7 @@ export default function UsagePage() {
   }
 
   // Usage tracking not yet implemented in backend - using mock data
-  const currentKey = activeKeys.find((k) => k.id === currentKeyId);
+  const currentKey = !isAllSelected ? activeKeys.find((k) => k.id === currentKeyId) : null;
   const usageStats = { requestsThisMonth: 1250, storageUsed: 512000000 };
   const keyLimits = { requestsPerMonth: 10000, storageLimit: 5368709120 };
   const requestsPercentage = (usageStats.requestsThisMonth / keyLimits.requestsPerMonth) * 100;
@@ -133,6 +124,7 @@ export default function UsagePage() {
             <SelectValue placeholder="Select API Key" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All API Keys (Overview)</SelectItem>
             {activeKeys.map((key) => (
               <SelectItem
                 key={key.id}
@@ -148,23 +140,39 @@ export default function UsagePage() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="API Key"
-          value={currentKey?.name || "N/A"}
-          description="Selected key"
+          title={isAllSelected ? "Total API Keys" : "API Key"}
+          value={isAllSelected ? activeKeys.length.toString() : currentKey?.name || "N/A"}
+          description={isAllSelected ? "Active keys" : "Selected key"}
           icon={TrendingUp}
         />
         <StatCard
           title="Status"
-          value={currentKey?.isActive && !currentKey?.revokedAt ? "Active" : "Revoked"}
+          value={
+            isAllSelected
+              ? `${activeKeys.length} Active`
+              : currentKey?.isActive && !currentKey?.revokedAt
+                ? "Active"
+                : "Revoked"
+          }
           description={
-            currentKey?.lastUsedAt ? `Last used: ${new Date(currentKey.lastUsedAt).toLocaleDateString()}` : "Never used"
+            isAllSelected
+              ? "All active keys"
+              : currentKey?.lastUsedAt
+                ? `Last used: ${new Date(currentKey.lastUsedAt).toLocaleDateString()}`
+                : "Never used"
           }
           icon={Zap}
         />
         <StatCard
           title="Created"
-          value={currentKey ? new Date(currentKey.createdAt).toLocaleDateString() : "N/A"}
-          description="Key creation date"
+          value={
+            isAllSelected
+              ? new Date(Math.min(...activeKeys.map((k) => new Date(k.createdAt).getTime()))).toLocaleDateString()
+              : currentKey
+                ? new Date(currentKey.createdAt).toLocaleDateString()
+                : "N/A"
+          }
+          description={isAllSelected ? "Oldest key" : "Key creation date"}
           icon={Database}
         />
         <StatCard
