@@ -20,17 +20,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import type { ApiKeyRequest } from "@/types/api";
+// import type { ApiKey, ApiKeyRequest } from "@/types/api";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 
 export default function AdminRequestsPage() {
-  const [selectedRequest, setSelectedRequest] = useState<ApiKeyRequest | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewAction, setReviewAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [reviewAction, setReviewAction] = useState<boolean>(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: requests, isLoading } = useQuery({
+  const { data: apiKeyRequestData, isLoading } = useQuery({
     queryKey: ["admin", "apiKeyRequests"],
     queryFn: async () => {
       const response = await api.admin.getAllApiKeyRequests();
@@ -39,19 +39,19 @@ export default function AdminRequestsPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: async ({ id, status, comment }: { id: string; status: "APPROVED" | "REJECTED"; comment?: string }) => {
+    mutationFn: async ({ id, approved, comment }: { id: string; approved: boolean; comment?: string }) => {
       return api.admin.reviewApiKeyRequest(id, {
-        status,
-        reviewComment: comment,
+        approved,
+        reviewerComment: comment,
       });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "apiKeyRequests"] });
-      setSelectedRequest(null);
+      setSelectedRequestId(null);
       setReviewComment("");
       toast({
-        title: variables.status === "APPROVED" ? "Request approved" : "Request rejected",
-        description: `The API key request has been ${variables.status.toLowerCase()}.`,
+        title: variables.approved ? "Request approved" : "Request rejected",
+        description: `The API key request has been ${variables.approved ? "approved" : "rejected"}.`,
       });
     },
     onError: () => {
@@ -64,10 +64,10 @@ export default function AdminRequestsPage() {
   });
 
   const handleReview = () => {
-    if (!selectedRequest) return;
+    if (!selectedRequestId) return;
     reviewMutation.mutate({
-      id: selectedRequest.id,
-      status: reviewAction,
+      id: selectedRequestId,
+      approved: reviewAction,
       comment: reviewComment || undefined,
     });
   };
@@ -88,8 +88,8 @@ export default function AdminRequestsPage() {
     );
   }
 
-  const pendingRequests = requests?.filter((r) => r.status === "PENDING") || [];
-  const reviewedRequests = requests?.filter((r) => r.status !== "PENDING") || [];
+  const pendingRequests = apiKeyRequestData?.requests?.filter((r) => r.status === "PENDING") || [];
+  const reviewedRequests = apiKeyRequestData?.requests?.filter((r) => r.status !== "PENDING") || [];
 
   return (
     <div className="space-y-6">
@@ -144,15 +144,15 @@ export default function AdminRequestsPage() {
                         <Badge>{request.requestType}</Badge>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Requested Tier</span>
-                        <Badge variant="outline">{request.requestedTier}</Badge>
+                        <span className="text-sm text-muted-foreground">Requested Storage in GiB</span>
+                        <Badge variant="outline">{request.requestedStorageGB}</Badge>
                       </div>
-                      {request.currentTier && (
+                      {/* {request.currentStorageGB && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Current Tier</span>
-                          <Badge variant="outline">{request.currentTier}</Badge>
+                          <span className="text-sm text-muted-foreground">Current Storage in GiB</span>
+                          <Badge variant="outline">{request.currentStorageGB}</Badge>
                         </div>
-                      )}
+                      )} */}
                     </div>
 
                     <div className="space-y-2">
@@ -164,8 +164,8 @@ export default function AdminRequestsPage() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedRequest(request);
-                          setReviewAction("REJECTED");
+                          setSelectedRequestId(request.id);
+                          setReviewAction(false);
                         }}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
@@ -173,8 +173,8 @@ export default function AdminRequestsPage() {
                       </Button>
                       <Button
                         onClick={() => {
-                          setSelectedRequest(request);
-                          setReviewAction("APPROVED");
+                          setSelectedRequestId(request.id);
+                          setReviewAction(true);
                         }}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />
@@ -221,14 +221,14 @@ export default function AdminRequestsPage() {
                   <CardContent className="space-y-2">
                     <div className="grid gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Requested Tier</span>
-                        <Badge variant="outline">{request.requestedTier}</Badge>
+                        <span className="text-sm text-muted-foreground">Requested Storage in GiB</span>
+                        <Badge variant="outline">{request.requestedStorageGB}</Badge>
                       </div>
                     </div>
-                    {request.reviewComment && (
+                    {request.reviewerComment && (
                       <div className="space-y-1">
                         <p className="text-sm font-medium">Review Comment:</p>
-                        <p className="rounded-lg border p-3 text-sm text-muted-foreground">{request.reviewComment}</p>
+                        <p className="rounded-lg border p-3 text-sm text-muted-foreground">{request.reviewerComment}</p>
                       </div>
                     )}
                   </CardContent>
@@ -241,16 +241,19 @@ export default function AdminRequestsPage() {
 
       {/* Review Dialog */}
       <Dialog
-        open={!!selectedRequest}
-        onOpenChange={() => setSelectedRequest(null)}
+        open={!!selectedRequestId}
+        onOpenChange={() => setSelectedRequestId(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{reviewAction === "APPROVED" ? "Approve" : "Reject"} Request</DialogTitle>
-            <DialogDescription>Review the API key request for {selectedRequest?.keyName}</DialogDescription>
+            <DialogTitle>{reviewAction ? "Approve" : "Reject"} Request</DialogTitle>
+            <DialogDescription>
+              Review the API key request for {selectedRequestId} and provide an optional comment.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="tier">Action</Label>
               <Label>Comment (Optional)</Label>
               <Textarea
                 value={reviewComment}
@@ -263,16 +266,16 @@ export default function AdminRequestsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setSelectedRequest(null)}
+              onClick={() => setSelectedRequestId(null)}
             >
               Cancel
             </Button>
             <Button
               onClick={handleReview}
               disabled={reviewMutation.isPending}
-              variant={reviewAction === "APPROVED" ? "default" : "destructive"}
+              variant={reviewAction ? "default" : "destructive"}
             >
-              {reviewMutation.isPending ? "Processing..." : reviewAction === "APPROVED" ? "Approve" : "Reject"}
+              {reviewMutation.isPending ? "Processing..." : reviewAction ? "Approve" : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>

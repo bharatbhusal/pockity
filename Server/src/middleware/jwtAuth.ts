@@ -13,7 +13,6 @@ export interface JwtPayload {
 export const jwtAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.cookies?.authToken;
-    console.log("Cookie:", req.cookies);
     if (!token) {
       throw new PockityErrorAuthentication({
         message: "Authentication token is required",

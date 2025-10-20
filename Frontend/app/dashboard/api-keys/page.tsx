@@ -38,7 +38,8 @@ import { Textarea } from "@/components/ui/textarea";
 export default function ApiKeysPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [keyName, setKeyName] = useState("");
-  const [requestedTier, setRequestedTier] = useState<string>("FREE");
+  const [requestedStorageGB, setRequestedStorageGB] = useState<string>("1");
+  const [requestedObjects, setRequestedObjects] = useState<string>("1000");
   const [reason, setReason] = useState("");
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -120,7 +121,7 @@ export default function ApiKeysPage() {
   };
 
   const handleCreateRequest = () => {
-    if (!keyName.trim() || !reason.trim()) {
+    if (!keyName.trim() || !reason.trim() || !requestedObjects.trim() || !requestedStorageGB.trim()) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields.",
@@ -131,7 +132,8 @@ export default function ApiKeysPage() {
 
     createRequestMutation.mutate({
       keyName,
-      requestedTier: requestedTier as "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE",
+      requestedStorageGB: parseInt(requestedStorageGB),
+      requestedObjects: parseInt(requestedObjects),
       reason,
     });
   };
@@ -152,7 +154,7 @@ export default function ApiKeysPage() {
     );
   }
 
-  const pendingRequests = requests?.filter((r) => r.status === "PENDING") || [];
+  const pendingRequests = requests?.filter((r) => !r.isActive) || [];
 
   return (
     <div className="space-y-6">
@@ -190,19 +192,36 @@ export default function ApiKeysPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tier">Tier</Label>
+                <Label htmlFor="tier">Storage in GiB</Label>
                 <Select
-                  value={requestedTier}
-                  onValueChange={setRequestedTier}
+                  value={requestedStorageGB}
+                  onValueChange={setRequestedStorageGB}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FREE">Free</SelectItem>
-                    <SelectItem value="BASIC">Basic</SelectItem>
-                    <SelectItem value="PREMIUM">Premium</SelectItem>
-                    <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
+                    <SelectItem value="1">1 GiB</SelectItem>
+                    <SelectItem value="5">5 GiB</SelectItem>
+                    <SelectItem value="10">10 GiB</SelectItem>
+                    <SelectItem value="20">20 GiB</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tier">Number of Objects</Label>
+                <Select
+                  value={requestedObjects}
+                  onValueChange={setRequestedObjects}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="100">100 Objects</SelectItem>
+                    <SelectItem value="500">500 Objects</SelectItem>
+                    <SelectItem value="1000">1000 Objects</SelectItem>
+                    <SelectItem value="2000">2000 Objects</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -250,8 +269,8 @@ export default function ApiKeysPage() {
                   className="flex items-center justify-between rounded-lg border p-4"
                 >
                   <div>
-                    <p className="font-medium">{request.keyName}</p>
-                    <p className="text-sm text-muted-foreground">{request.requestedTier} tier</p>
+                    <p className="font-medium">{request.name}</p>
+                    {/* <p className="text-sm text-muted-foreground">{request.req} GiB</p> */}
                   </div>
                   <Badge variant="secondary">PENDING</Badge>
                 </div>
@@ -282,13 +301,14 @@ export default function ApiKeysPage() {
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                       <Key className="h-5 w-5" />
-                      {key.name}
+                      {key.name || "Unnamed Key"}
                     </CardTitle>
                     <CardDescription>Created {new Date(key.createdAt).toLocaleDateString()}</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge>{key.tier}</Badge>
-                    <Badge variant={key.status === "ACTIVE" ? "default" : "destructive"}>{key.status}</Badge>
+                    <Badge variant={key.isActive && !key.revokedAt ? "default" : "destructive"}>
+                      {key.isActive && !key.revokedAt ? "ACTIVE" : "REVOKED"}
+                    </Badge>
                   </div>
                 </div>
               </CardHeader>
@@ -297,7 +317,7 @@ export default function ApiKeysPage() {
                   <Label>API Key</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <div className="flex-1 overflow-hidden rounded-md border bg-muted px-3 py-2 font-mono text-xs sm:text-sm">
-                      {visibleKeys.has(key.id) ? key.key : "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●"}
+                      {visibleKeys.has(key.id) ? key.apiAccessKeyId : "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●"}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -311,7 +331,7 @@ export default function ApiKeysPage() {
                       <Button
                         size="icon"
                         variant="outline"
-                        onClick={() => copyToClipboard(key.key)}
+                        onClick={() => copyToClipboard(key.apiAccessKeyId)}
                         className="flex-1 sm:flex-none"
                       >
                         <Copy className="h-4 w-4" />
@@ -322,16 +342,18 @@ export default function ApiKeysPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                   <div>
-                    <p className="text-sm text-muted-foreground">Requests/Day</p>
-                    <p className="text-lg font-medium">{key.requestsPerDay.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="text-lg font-medium">{key.isActive && !key.revokedAt ? "Active" : "Revoked"}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Requests/Month</p>
-                    <p className="text-lg font-medium">{key.requestsPerMonth.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Last Used</p>
+                    <p className="text-lg font-medium">
+                      {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "Never"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Storage Limit</p>
-                    <p className="text-lg font-medium">{(key.storageLimit / 1024 / 1024).toFixed(0)} MB</p>
+                    <p className="text-sm text-muted-foreground">Created</p>
+                    <p className="text-lg font-medium">{new Date(key.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
 
@@ -341,6 +363,7 @@ export default function ApiKeysPage() {
                       <Button
                         variant="destructive"
                         size="sm"
+                        disabled={!!key.revokedAt}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Revoke Key

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
 
   const filteredUsers = userAnalytics?.users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -57,20 +57,20 @@ export default function AdminUsersPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Total Users"
-          value={userAnalytics?.totalUsers.toLocaleString() || "0"}
+          value={userAnalytics?.pagination.total.toLocaleString() || "0"}
           description="All registered users"
           icon={Users}
         />
         <StatCard
-          title="Active Users"
-          value={userAnalytics?.activeUsers.toLocaleString() || "0"}
-          description="Users with API keys"
+          title="Verified Users"
+          value={userAnalytics?.users.filter((u) => u.emailVerified).length.toLocaleString() || "0"}
+          description="Email verified"
           icon={UserCheck}
         />
         <StatCard
-          title="New This Month"
-          value={userAnalytics?.newUsersThisMonth.toLocaleString() || "0"}
-          description={`${userAnalytics?.newUsersToday || 0} today`}
+          title="Admin Users"
+          value={userAnalytics?.users.filter((u) => u.role === "ADMIN").length.toLocaleString() || "0"}
+          description="System administrators"
           icon={UserPlus}
         />
       </div>
@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
                   <TableHead className="min-w-[200px]">Email</TableHead>
                   <TableHead className="min-w-[100px]">Role</TableHead>
                   <TableHead className="min-w-[100px]">API Keys</TableHead>
-                  <TableHead className="min-w-[120px]">Total Requests</TableHead>
+                  <TableHead className="min-w-[120px]">Requests</TableHead>
                   <TableHead className="min-w-[120px]">Joined</TableHead>
                 </TableRow>
               </TableHeader>
@@ -108,14 +108,12 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={user.profilePicture}
-                              alt={user.name}
-                            />
-                            <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback>
+                              {user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{user.name}</p>
+                            <p className="font-medium">{user.name || "No name"}</p>
                             {user.emailVerified ? (
                               <p className="text-xs text-green-600">Verified</p>
                             ) : (
@@ -128,8 +126,12 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <Badge variant={user.role === "ADMIN" ? "default" : "outline"}>{user.role}</Badge>
                       </TableCell>
-                      <TableCell>{user.apiKeysCount}</TableCell>
-                      <TableCell>{user.totalRequests.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {user.statistics.apiKeys.total} ({user.statistics.apiKeys.active} active)
+                      </TableCell>
+                      <TableCell>
+                        {user.statistics.requests.total} ({user.statistics.requests.pending} pending)
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </TableCell>

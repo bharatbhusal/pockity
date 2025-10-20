@@ -34,6 +34,7 @@ export const getUserProfileController = async (req: Request, res: Response, next
             email: user.email,
             name: user.name,
             role: user.role,
+            picture: user.picture,
             emailVerified: user.emailVerified,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,

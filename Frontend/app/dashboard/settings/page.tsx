@@ -33,7 +33,7 @@ export default function SettingsPage() {
 
   // Profile state
   const [name, setName] = useState(user?.name || "");
-  const [profilePicture, setProfilePicture] = useState(user?.profilePicture || "");
+  const [profilePicture, setProfilePicture] = useState(user?.picture || "");
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -100,7 +100,6 @@ export default function SettingsPage() {
   const handleUpdateProfile = () => {
     updateProfileMutation.mutate({
       name: name !== user?.name ? name : undefined,
-      profilePicture: profilePicture !== user?.profilePicture ? profilePicture : undefined,
     });
   };
 
@@ -163,7 +162,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage
-                    src={profilePicture || user.profilePicture}
+                    src={profilePicture || user.picture || undefined}
                     alt={name}
                   />
                   <AvatarFallback className="text-2xl">{name.charAt(0).toUpperCase()}</AvatarFallback>

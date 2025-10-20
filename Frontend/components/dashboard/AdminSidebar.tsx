@@ -123,10 +123,12 @@ function AdminUserSection() {
           <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted">
             <Avatar className="h-8 w-8">
               <AvatarImage
-                src={user.profilePicture}
-                alt={user.name}
+                src={user.picture || undefined}
+                alt={user.name || undefined}
               />
-              <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>
+                {user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left">
               <p className="text-sm font-medium">{user.name}</p>

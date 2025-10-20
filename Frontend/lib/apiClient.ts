@@ -1,7 +1,7 @@
 import API from "@/lib/axios";
 import type {
   ApiKey,
-  ApiKeyRequest,
+  ApiKeyRequestsResponse,
   ApiKeyOverview,
   ApiResponse,
   AccountSummary,
@@ -10,6 +10,7 @@ import type {
   ChangePasswordRequest,
   CreateApiKeyRequest,
   LoginRequest,
+  OtpResponse,
   RegisterRequest,
   ReviewApiKeyRequest,
   SystemHealth,
@@ -17,9 +18,11 @@ import type {
   UpgradeApiKeyRequest,
   User,
   UserAnalytics,
+  UserProfileData,
   VerifyLoginRequest,
   VerifyRegisterRequest,
   UsageStats,
+  ApiKeyRequestItem,
 } from "@/types/api";
 
 // =====================
@@ -31,7 +34,7 @@ export const authApi = {
    * Request login OTP
    */
   requestLogin: async (data: LoginRequest) => {
-    const response = await API.post<ApiResponse<{ email: string }>>("/auth/request-login", data);
+    const response = await API.post<ApiResponse<OtpResponse>>("/auth/request-login", data);
     return response.data;
   },
 
@@ -47,7 +50,7 @@ export const authApi = {
    * Request registration OTP
    */
   requestRegister: async (data: RegisterRequest) => {
-    const response = await API.post<ApiResponse<{ email: string }>>("/auth/request-register", data);
+    const response = await API.post<ApiResponse<OtpResponse>>("/auth/request-register", data);
     return response.data;
   },
 
@@ -85,7 +88,7 @@ export const userApi = {
    * Get current user profile
    */
   getProfile: async () => {
-    const response = await API.get<ApiResponse<User>>("/users/profile");
+    const response = await API.get<ApiResponse<UserProfileData>>("/users/profile");
     return response.data;
   },
 
@@ -93,7 +96,7 @@ export const userApi = {
    * Update user profile
    */
   updateProfile: async (data: UpdateProfileRequest) => {
-    const response = await API.put<ApiResponse<User>>("/users/profile", data);
+    const response = await API.put<ApiResponse<{ user: User }>>("/users/profile", data);
     return response.data;
   },
 
@@ -155,7 +158,7 @@ export const apiKeyApi = {
    * Get user's API key requests
    */
   getUserRequests: async () => {
-    const response = await API.get<ApiResponse<ApiKeyRequest[]>>("/apiKeys/request");
+    const response = await API.get<ApiResponse<ApiKey[]>>("/apiKeys/request");
     return response.data;
   },
 
@@ -163,7 +166,7 @@ export const apiKeyApi = {
    * Create new API key request
    */
   createKeyRequest: async (data: CreateApiKeyRequest) => {
-    const response = await API.post<ApiResponse<ApiKeyRequest>>("/apiKeys/request/create", data);
+    const response = await API.post<ApiResponse<ApiKeyRequestItem>>("/apiKeys/request/create", data);
     return response.data;
   },
 
@@ -171,7 +174,7 @@ export const apiKeyApi = {
    * Request API key upgrade
    */
   upgradeKeyRequest: async (data: UpgradeApiKeyRequest) => {
-    const response = await API.post<ApiResponse<ApiKeyRequest>>("/apiKeys/request/upgrade", data);
+    const response = await API.post<ApiResponse<ApiKeyRequestItem>>("/apiKeys/request/upgrade", data);
     return response.data;
   },
 
@@ -179,7 +182,7 @@ export const apiKeyApi = {
    * Get specific API key request details
    */
   getKeyRequest: async (id: string) => {
-    const response = await API.get<ApiResponse<ApiKeyRequest>>(`/apiKeys/request/${id}`);
+    const response = await API.get<ApiResponse<ApiKeyRequestItem>>(`/apiKeys/request/${id}`);
     return response.data;
   },
 };
@@ -193,7 +196,7 @@ export const adminApi = {
    * Get all API key requests (admin only)
    */
   getAllApiKeyRequests: async () => {
-    const response = await API.get<ApiResponse<ApiKeyRequest[]>>("/apiKeys/request/admin/all");
+    const response = await API.get<ApiResponse<ApiKeyRequestsResponse>>("/apiKeys/request/admin/all");
     return response.data;
   },
 
@@ -201,7 +204,7 @@ export const adminApi = {
    * Review an API key request (admin only)
    */
   reviewApiKeyRequest: async (id: string, data: ReviewApiKeyRequest) => {
-    const response = await API.patch<ApiResponse<ApiKeyRequest>>(`/apiKeys/request/admin/review/${id}`, data);
+    const response = await API.patch<ApiResponse<ApiKeyRequestItem>>(`/apiKeys/request/admin/review/${id}`, data);
     return response.data;
   },
 

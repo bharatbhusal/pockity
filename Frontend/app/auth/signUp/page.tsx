@@ -75,7 +75,7 @@ export default function SignUpPage() {
       });
       return;
     }
-    requestRegisterMutation.mutate({ email, name });
+    requestRegisterMutation.mutate({ email });
   };
 
   const handleVerifyRegister = (e: React.FormEvent) => {

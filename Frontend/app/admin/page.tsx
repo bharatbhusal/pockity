@@ -23,31 +23,13 @@ import {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function AdminDashboardPage() {
-  const { data: health, isLoading: isLoadingHealth } = useQuery({
+  const { data: health, isLoading } = useQuery({
     queryKey: ["admin", "health"],
     queryFn: async () => {
       const response = await api.admin.getSystemHealth();
       return response.data;
     },
   });
-
-  const { data: userAnalytics, isLoading: isLoadingUsers } = useQuery({
-    queryKey: ["admin", "users"],
-    queryFn: async () => {
-      const response = await api.admin.getUserAnalytics();
-      return response.data;
-    },
-  });
-
-  const { data: apiKeyOverview, isLoading: isLoadingKeys } = useQuery({
-    queryKey: ["admin", "api-keys"],
-    queryFn: async () => {
-      const response = await api.admin.getApiKeyOverview();
-      return response.data;
-    },
-  });
-
-  const isLoading = isLoadingHealth || isLoadingUsers || isLoadingKeys;
 
   if (isLoading) {
     return (
@@ -65,10 +47,11 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const tierData = Object.entries(apiKeyOverview?.apiKeysByTier || {}).map(([name, value]) => ({
-    name,
-    value,
-  }));
+  // Remove tierData - not provided by backend
+  // const tierData = Object.entries(apiKeyOverview?.apiKeysByTier || {}).map(([name, value]) => ({
+  //   name,
+  //   value,
+  // }));
 
   return (
     <div className="space-y-6">
@@ -82,26 +65,26 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Users"
-          value={userAnalytics?.totalUsers.toLocaleString() || "0"}
-          description={`${userAnalytics?.activeUsers || 0} active`}
+          value={health?.userStatistics.total.toLocaleString() || "0"}
+          description={`${health?.userStatistics.verified || 0} verified`}
           icon={Users}
         />
         <StatCard
           title="Total API Keys"
-          value={apiKeyOverview?.totalApiKeys.toLocaleString() || "0"}
-          description={`${apiKeyOverview?.activeApiKeys || 0} active`}
+          value={health?.apiKeyStatistics.total.toLocaleString() || "0"}
+          description={`${health?.apiKeyStatistics.active || 0} active`}
           icon={Key}
         />
         <StatCard
-          title="Total Requests"
-          value={health?.totalRequests.toLocaleString() || "0"}
-          description="All time"
+          title="Pending Requests"
+          value={health?.requestStatistics.pending.toLocaleString() || "0"}
+          description={`${health?.requestStatistics.total || 0} total`}
           icon={TrendingUp}
         />
         <StatCard
           title="System Status"
-          value={health?.status === "healthy" ? "Healthy" : "Issue"}
-          description={`${Math.floor((health?.uptime || 0) / 3600)}h uptime`}
+          value={health?.systemHealth.status === "healthy" ? "Healthy" : "Issue"}
+          description={`${Math.floor((health?.systemHealth.uptime || 0) / 3600)}h uptime`}
           icon={Activity}
         />
       </div>
@@ -109,8 +92,8 @@ export default function AdminDashboardPage() {
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <ChartCard
-          title="API Keys by Tier"
-          description="Distribution of API key tiers"
+          title="API Key Status"
+          description="Distribution of API key statuses"
         >
           <ResponsiveContainer
             width="100%"
@@ -118,7 +101,10 @@ export default function AdminDashboardPage() {
           >
             <PieChart>
               <Pie
-                data={tierData}
+                data={[
+                  { name: "Active", value: health?.apiKeyStatistics.active || 0 },
+                  { name: "Revoked", value: health?.apiKeyStatistics.revoked || 0 },
+                ]}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -127,7 +113,7 @@ export default function AdminDashboardPage() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {tierData.map((entry, index) => (
+                {[0, 1].map((index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -141,8 +127,8 @@ export default function AdminDashboardPage() {
         </ChartCard>
 
         <ChartCard
-          title="User Growth"
-          description="New users over time"
+          title="Request Status"
+          description="API key request statuses"
         >
           <ResponsiveContainer
             width="100%"
@@ -150,20 +136,17 @@ export default function AdminDashboardPage() {
           >
             <BarChart
               data={[
-                { month: "Jan", users: 45 },
-                { month: "Feb", users: 62 },
-                { month: "Mar", users: 78 },
-                { month: "Apr", users: 93 },
-                { month: "May", users: 112 },
-                { month: "Jun", users: 134 },
+                { status: "Pending", count: health?.requestStatistics.pending || 0 },
+                { status: "Approved", count: health?.requestStatistics.approved || 0 },
+                { status: "Rejected", count: health?.requestStatistics.rejected || 0 },
               ]}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="status" />
               <YAxis />
               <Tooltip />
               <Bar
-                dataKey="users"
+                dataKey="count"
                 fill="hsl(var(--primary))"
               />
             </BarChart>
@@ -172,9 +155,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Pending Requests Alert */}
-      {apiKeyOverview && apiKeyOverview.pendingRequests > 0 && (
+      {health && health.requestStatistics.pending > 0 && (
         <div className="rounded-lg border border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-950">
-          <p className="font-medium">⚠️ {apiKeyOverview.pendingRequests} API key request(s) pending review</p>
+          <p className="font-medium">⚠️ {health.requestStatistics.pending} API key request(s) pending review</p>
           <p className="mt-1 text-sm text-muted-foreground">Navigate to Requests to review pending applications</p>
         </div>
       )}

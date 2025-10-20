@@ -23,7 +23,7 @@ import {
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Database, Zap, Clock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
@@ -40,22 +40,23 @@ export default function UsagePage() {
   });
 
   // Set default selected key
-  const activeKeys = apiKeys?.filter((k) => k.status === "ACTIVE") || [];
+  const activeKeys = apiKeys?.filter((k) => k.isActive && !k.revokedAt) || [];
   const currentKeyId = selectedKeyId || activeKeys[0]?.id || "";
 
-  const { data: usageStats, isLoading: isLoadingUsage } = useQuery({
-    queryKey: ["usage", currentKeyId],
-    queryFn: async () => {
-      if (!currentKeyId) return null;
-      const response = await api.storage.getUsageStats(currentKeyId);
-      return response.data;
-    },
-    enabled: !!currentKeyId,
-  });
+  // Usage tracking not yet implemented in backend
+  const isLoading = isLoadingKeys;
 
-  const isLoading = isLoadingKeys || isLoadingUsage;
+  // TODO: Remove mock data once backend implements usage tracking
+  const mockUsageStats = {
+    requestsThisMonth: 1250,
+    storageUsed: 512000000, // bytes
+  };
+  const mockLimits = {
+    requestsPerMonth: 10000,
+    storageLimit: 5368709120, // 5GB in bytes
+  };
 
-  // Mock data for detailed charts
+  // Mock data for demonstration
   const dailyRequestsData = [
     { date: "Mon", requests: 145 },
     { date: "Tue", requests: 190 },
@@ -81,8 +82,6 @@ export default function UsagePage() {
     { name: "Documents", value: 15 },
     { name: "Other", value: 10 },
   ];
-
-  const currentKey = apiKeys?.find((k) => k.id === currentKeyId);
 
   if (isLoading) {
     return (
@@ -111,8 +110,12 @@ export default function UsagePage() {
     );
   }
 
-  const requestsPercentage = currentKey ? (usageStats?.requestsThisMonth || 0 / currentKey.requestsPerMonth) * 100 : 0;
-  const storagePercentage = currentKey ? ((usageStats?.storageUsed || 0) / currentKey.storageLimit) * 100 : 0;
+  // Usage tracking not yet implemented in backend - using mock data
+  const currentKey = activeKeys.find((k) => k.id === currentKeyId);
+  const usageStats = { requestsThisMonth: 1250, storageUsed: 512000000 };
+  const keyLimits = { requestsPerMonth: 10000, storageLimit: 5368709120 };
+  const requestsPercentage = (usageStats.requestsThisMonth / keyLimits.requestsPerMonth) * 100;
+  const storagePercentage = (usageStats.storageUsed / keyLimits.storageLimit) * 100;
 
   return (
     <div className="space-y-6">
@@ -135,7 +138,7 @@ export default function UsagePage() {
                 key={key.id}
                 value={key.id}
               >
-                {key.name} ({key.tier})
+                {key.name || "Unnamed Key"}
               </SelectItem>
             ))}
           </SelectContent>
@@ -145,30 +148,45 @@ export default function UsagePage() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Requests"
-          value={usageStats?.totalRequests.toLocaleString() || "0"}
-          description="All time"
+          title="API Key"
+          value={currentKey?.name || "N/A"}
+          description="Selected key"
           icon={TrendingUp}
         />
         <StatCard
-          title="Requests Today"
-          value={usageStats?.requestsToday.toLocaleString() || "0"}
-          description={`${usageStats?.requestsThisMonth.toLocaleString() || 0} this month`}
+          title="Status"
+          value={currentKey?.isActive && !currentKey?.revokedAt ? "Active" : "Revoked"}
+          description={
+            currentKey?.lastUsedAt ? `Last used: ${new Date(currentKey.lastUsedAt).toLocaleDateString()}` : "Never used"
+          }
           icon={Zap}
         />
         <StatCard
-          title="Storage Used"
-          value={`${((usageStats?.storageUsed || 0) / 1024 / 1024).toFixed(2)} MB`}
-          description={`${((currentKey?.storageLimit || 0) / 1024 / 1024).toFixed(0)} MB limit`}
+          title="Created"
+          value={currentKey ? new Date(currentKey.createdAt).toLocaleDateString() : "N/A"}
+          description="Key creation date"
           icon={Database}
         />
         <StatCard
-          title="Total Objects"
-          value={usageStats?.totalObjects.toLocaleString() || "0"}
-          description="Files stored"
+          title="Usage Tracking"
+          value="Coming Soon"
+          description="Feature in development"
           icon={Clock}
         />
       </div>
+
+      {/* Coming Soon Message */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Analytics</CardTitle>
+          <CardDescription>Detailed usage tracking is currently being implemented</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="py-8 text-center text-muted-foreground">
+            Usage tracking features (requests, storage, bandwidth) will be available soon.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Usage Limits */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -179,7 +197,7 @@ export default function UsagePage() {
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>
-                {usageStats?.requestsThisMonth.toLocaleString() || 0} / {currentKey?.requestsPerMonth.toLocaleString()}
+                {usageStats.requestsThisMonth.toLocaleString()} / {keyLimits.requestsPerMonth.toLocaleString()}
               </span>
               <span className="text-muted-foreground">{requestsPercentage.toFixed(1)}%</span>
             </div>
@@ -194,8 +212,8 @@ export default function UsagePage() {
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>
-                {((usageStats?.storageUsed || 0) / 1024 / 1024).toFixed(2)} MB /{" "}
-                {((currentKey?.storageLimit || 0) / 1024 / 1024).toFixed(0)} MB
+                {(usageStats.storageUsed / 1024 / 1024).toFixed(2)} MB /{" "}
+                {(keyLimits.storageLimit / 1024 / 1024).toFixed(0)} MB
               </span>
               <span className="text-muted-foreground">{storagePercentage.toFixed(1)}%</span>
             </div>

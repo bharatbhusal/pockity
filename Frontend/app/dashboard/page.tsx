@@ -66,7 +66,7 @@ export default function DashboardPage() {
     );
   }
 
-  const activeKeys = apiKeys?.filter((key) => key.status === "ACTIVE").length || 0;
+  const activeKeys = apiKeys?.filter((key) => key.isActive && !key.revokedAt).length || 0;
   const totalRequests = summary?.totalRequests || 0;
   const totalStorage = summary?.totalStorage || 0;
 
@@ -174,12 +174,13 @@ export default function DashboardPage() {
                 className="flex items-center justify-between rounded-lg border p-4"
               >
                 <div className="space-y-1">
-                  <p className="font-medium">{key.name}</p>
-                  <p className="text-sm text-muted-foreground">{key.key.slice(0, 20)}...</p>
+                  <p className="font-medium">{key.name || "Unnamed Key"}</p>
+                  <p className="text-sm text-muted-foreground">{key.apiAccessKeyId.slice(0, 20)}...</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={key.status === "ACTIVE" ? "default" : "secondary"}>{key.tier}</Badge>
-                  <Badge variant={key.status === "ACTIVE" ? "default" : "destructive"}>{key.status}</Badge>
+                  <Badge variant={key.isActive && !key.revokedAt ? "default" : "destructive"}>
+                    {key.isActive && !key.revokedAt ? "ACTIVE" : "REVOKED"}
+                  </Badge>
                 </div>
               </div>
             ))}

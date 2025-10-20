@@ -56,7 +56,7 @@ export default function AdminStatsPage() {
     );
   }
 
-  const uptimeHours = Math.floor((health?.uptime || 0) / 3600);
+  const uptimeHours = Math.floor((health?.systemHealth.uptime || 0) / 3600);
   const uptimeDays = Math.floor(uptimeHours / 24);
 
   return (
@@ -71,7 +71,7 @@ export default function AdminStatsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           title="System Status"
-          value={health?.status === "healthy" ? "Healthy" : health?.status === "degraded" ? "Degraded" : "Down"}
+          value={health?.systemHealth.status === "healthy" ? "Healthy" : "Issue"}
           description="Current system state"
           icon={Activity}
         />
@@ -82,15 +82,15 @@ export default function AdminStatsPage() {
           icon={Clock}
         />
         <StatCard
-          title="Total Storage"
-          value={`${((health?.totalStorage || 0) / 1024 / 1024 / 1024).toFixed(2)} GB`}
-          description="Across all users"
+          title="Total Users"
+          value={health?.userStatistics.total.toLocaleString() || "0"}
+          description={`${health?.userStatistics.verified || 0} verified`}
           icon={Database}
         />
         <StatCard
-          title="Total Requests"
-          value={health?.totalRequests.toLocaleString() || "0"}
-          description="All time API calls"
+          title="Total API Keys"
+          value={health?.apiKeyStatistics.total.toLocaleString() || "0"}
+          description={`${health?.apiKeyStatistics.active || 0} active`}
           icon={Server}
         />
       </div>
@@ -145,8 +145,8 @@ export default function AdminStatsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Action</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Resource</TableHead>
+                <TableHead>Actor ID</TableHead>
+                <TableHead>Details</TableHead>
                 <TableHead>Time</TableHead>
               </TableRow>
             </TableHeader>
@@ -157,13 +157,10 @@ export default function AdminStatsPage() {
                     <TableCell>
                       <Badge variant="outline">{log.action}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{log.user?.name || "System"}</TableCell>
-                    <TableCell className="text-sm">
-                      {log.resource}
-                      {log.resourceId && (
-                        <span className="text-muted-foreground"> (ID: {log.resourceId.slice(0, 8)}...)</span>
-                      )}
+                    <TableCell className="font-mono text-sm">
+                      {log.actorId ? log.actorId.slice(0, 8) + "..." : "System"}
                     </TableCell>
+                    <TableCell className="text-sm">{log.detail || "No details"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(log.createdAt).toLocaleString()}
                     </TableCell>

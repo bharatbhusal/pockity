@@ -1,13 +1,14 @@
 "use client";
 
 import { api } from "@/lib/apiClient";
-import type { User } from "@/types/api";
+import type { ApiKey, User } from "@/types/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
+  apiKeys?: ApiKey[];
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -48,10 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const value: AuthContextType = {
-    user: userData || null,
+    user: userData?.user || null,
+    apiKeys: userData?.apiKeys || [],
     isLoading,
     isAuthenticated: !!userData,
-    isAdmin: userData?.role === "ADMIN",
+    isAdmin: userData?.user.role === "ADMIN",
     logout: async () => {
       await logoutMutation.mutateAsync();
     },
