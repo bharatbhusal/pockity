@@ -123,6 +123,19 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface AuditLogsResponse {
+  auditLogs: AuditLog[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+  };
+  filters: {
+    action?: string;
+    userId?: string;
+  };
+}
+
 // ============================================================================
 // ADMIN DASHBOARD TYPES
 // ============================================================================
@@ -220,35 +233,9 @@ export interface ApiKeyOverview {
 // REQUEST TYPES (for API calls)
 // ============================================================================
 
-export interface LoginRequest {
-  email: string;
-}
-
-export interface VerifyLoginRequest {
-  email: string;
-  otp: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-}
-
-export interface VerifyRegisterRequest {
-  email: string;
-  otp: string;
-  password: string;
-  name?: string;
-}
-
 export interface UpdateProfileRequest {
   name?: string;
   email?: string;
-}
-
-export interface ChangePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
 }
 
 export interface CreateApiKeyRequest {
@@ -268,23 +255,6 @@ export interface UpgradeApiKeyRequest {
 export interface ReviewApiKeyRequest {
   approved: boolean;
   reviewerComment?: string;
-}
-
-// ============================================================================
-// AUTH RESPONSE TYPES
-// ============================================================================
-
-export interface AuthResponse {
-  success: boolean;
-  message: string;
-  data: {
-    user: User;
-  };
-}
-
-export interface OtpResponse {
-  email: string;
-  purpose: "REGISTER" | "LOGIN" | "RESET_PASSWORD";
 }
 
 // ============================================================================

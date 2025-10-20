@@ -2,13 +2,13 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, FileKey, LogOut, Menu, X, Activity } from "lucide-react";
+import { LayoutDashboard, Users, FileKey, LogOut, Menu, X, Activity, Settings, Shield, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ const navigation = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: FileKey },
   { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Audit Logs", href: "/admin/logs", icon: ScrollText },
   { name: "System Stats", href: "/admin/stats", icon: Activity },
 ];
 
@@ -59,7 +60,6 @@ export function AdminSidebar() {
           {/* Logo */}
           <div className="flex h-16 items-center justify-between border-b px-6">
             <h1 className="text-xl font-bold">Pockity Admin</h1>
-            <div className="hidden lg:block">{/* <ThemeToggle /> */}</div>
           </div>
 
           {/* Navigation */}
@@ -142,10 +142,30 @@ function AdminUserSection() {
         >
           <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
+
           <DropdownMenuItem asChild>
-            <Link href="/dashboard">User Dashboard</Link>
+            <Link href="/dashboard">
+              <Shield className="mr-2 h-4 w-4" />
+              User Dashboard
+            </Link>
           </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard/settings">
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
+
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <div className="px-2 py-1">
+            <ThemeToggle />
+          </div>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem
             onClick={logout}
             className="text-red-600"

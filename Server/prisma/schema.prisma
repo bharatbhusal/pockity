@@ -24,29 +24,15 @@ enum ApiKeyRequestStatus {
   REJECTED
 }
 
-enum AuthMethod {
-  PASSWORD
-  OAUTH
-}
-
-enum OtpPurpose {
-  REGISTER
-  LOGIN
-  RESET_PASSWORD
-}
-
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  name          String?
-  picture       String?
-  passwordHash  String?
-  authMethod    AuthMethod
-  googleId      String?    @unique
-  emailVerified Boolean    @default(false)
-  role          Role       @default(USER)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  picture   String?
+  googleId  String   @unique
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   apiKeys        ApiKey[]
   apiKeyRequests ApiKeyRequest[]
@@ -94,14 +80,6 @@ model AuditLog {
 
   @@index([apiAccessKeyId])
   @@index([action])
-}
-
-model Otp {
-  id       String     @id @default(cuid())
-  otp_code String     @default(cuid())
-  email    String     @unique
-  purpose  OtpPurpose
-  expiry   DateTime
 }
 
 model ApiKeyRequest {

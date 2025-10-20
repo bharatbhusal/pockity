@@ -3,14 +3,13 @@ import { z } from "zod";
 import { UserRepository } from "../repositories/userRepository";
 import { UsageService } from "../services/usageService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
-import { PockityErrorInvalidInput, PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
+import { PockityErrorInvalidInput } from "../utils/response/PockityErrorClasses";
 import { ApiKeyRepository } from "../repositories";
 import { AuditLogService } from "../services/auditLogService";
 
 // Validation schemas
 const updateProfileSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
-  email: z.string().email("Invalid email format").optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -35,7 +34,6 @@ export const getUserProfileController = async (req: Request, res: Response, next
             name: user.name,
             role: user.role,
             picture: user.picture,
-            emailVerified: user.emailVerified,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
           },
@@ -69,27 +67,12 @@ export const updateUserProfileController = async (req: Request, res: Response, n
       });
     }
 
-    const { name, email } = validationResult.data;
+    const { name } = validationResult.data;
     const user = req.user;
-
-    // Check if email is already taken by another user
-    if (email && email !== user.email) {
-      const existingUser = await UserRepository.findByEmail(email);
-      if (existingUser && existingUser.id !== user.id) {
-        throw new PockityErrorBadRequest({
-          message: "Email is already taken",
-          httpStatusCode: 409,
-        });
-      }
-    }
 
     // Update user profile
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
-    if (email !== undefined) {
-      updateData.email = email;
-      updateData.emailVerified = false; // Re-verify email if changed
-    }
 
     const updatedUser = await UserRepository.update(user.id, updateData);
 
@@ -110,56 +93,9 @@ export const updateUserProfileController = async (req: Request, res: Response, n
             email: updatedUser.email,
             name: updatedUser.name,
             role: updatedUser.role,
-            emailVerified: updatedUser.emailVerified,
             updatedAt: updatedUser.updatedAt,
           },
         },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Change user password
-export const changePasswordController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Validate request body
-    const validationResult = changePasswordSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      throw new PockityErrorInvalidInput({
-        message: "Invalid password data",
-        details: validationResult.error.errors,
-        httpStatusCode: 400,
-      });
-    }
-
-    const { currentPassword, newPassword } = validationResult.data;
-    const user = req.user;
-
-    // Verify current password
-    const bcrypt = require("bcrypt");
-    if (!user.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      throw new PockityErrorBadRequest({
-        message: "Current password is incorrect",
-        httpStatusCode: 400,
-      });
-    }
-
-    // Hash new password
-    const newPasswordHash = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await UserRepository.update(user.id, {
-      passwordHash: newPasswordHash,
-      emailVerified: false,
-    });
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "Password changed successfully",
-        data: {},
       }),
     );
   } catch (error) {
@@ -187,7 +123,6 @@ export const deleteUserAccountController = async (req: Request, res: Response, n
     await UserRepository.update(user.id, {
       email: `deleted_${user.id}@example.com`,
       name: "Deleted User",
-      emailVerified: false,
     });
 
     res.status(200).json(
@@ -245,7 +180,6 @@ export const getAccountSummaryController = async (req: Request, res: Response, n
             email: user.email,
             name: user.name,
             role: user.role,
-            emailVerified: user.emailVerified,
             createdAt: user.createdAt,
           },
           apiKeys: apiKeysWithUsage,

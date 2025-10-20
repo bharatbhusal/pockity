@@ -2,13 +2,13 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { Key, LayoutDashboard, Settings, LogOut, Menu, X, BarChart3 } from "lucide-react";
+import { Key, LayoutDashboard, Settings, LogOut, Menu, X, BarChart3, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +59,6 @@ export function DashboardSidebar() {
           {/* Logo */}
           <div className="flex h-16 items-center justify-between border-b px-6">
             <h1 className="text-xl font-bold">Pockity</h1>
-            <div className="hidden lg:block">{/* <ThemeToggle /> */}</div>
           </div>
 
           {/* Navigation */}
@@ -103,8 +102,12 @@ export function DashboardSidebar() {
 
 function DashboardUserSection() {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   if (!user) return null;
+
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isAdmin = user.role === "ADMIN";
 
   return (
     <div className="border-t p-4">
@@ -130,13 +133,35 @@ function DashboardUserSection() {
         >
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
+
+          {isAdmin && (
+            <>
+              <DropdownMenuItem asChild>
+                <Link href={isAdminRoute ? "/dashboard" : "/admin"}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  {isAdminRoute ? "User Dashboard" : "Admin Dashboard"}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+
           <DropdownMenuItem asChild>
             <Link href="/dashboard/settings">
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </Link>
           </DropdownMenuItem>
+
           <DropdownMenuSeparator />
+
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <div className="px-2 py-1">
+            <ThemeToggle />
+          </div>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem
             onClick={logout}
             className="text-red-600"

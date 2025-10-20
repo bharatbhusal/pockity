@@ -191,7 +191,7 @@ All API responses follow this consistent structure:
       "email": "user@example.com",
       "name": "John Doe",
       "role": "USER",
-      "emailVerified": true,
+
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z"
     },
@@ -284,7 +284,7 @@ All API responses follow this consistent structure:
       "email": "user@example.com",
       "name": "John Doe",
       "role": "USER",
-      "emailVerified": true,
+
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
     "apiKeys": [
@@ -845,7 +845,7 @@ All API responses follow this consistent structure:
         "email": "user@example.com",
         "name": "John Doe",
         "role": "USER",
-        "emailVerified": true,
+
         "createdAt": "2024-01-01T00:00:00.000Z"
       },
       "apiKeys": {

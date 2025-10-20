@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "@/styles/global.css";
 import { ReactQueryProvider } from "@/providers/ReactQueryProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
-// import { ThemeProvider } from "@/providers/ThemeProvider";
+import { ThemeProvider } from "@/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -24,19 +24,19 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className={inter.className}>
-        {/* <ThemeProvider
+        <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-        > */}
-        <ReactQueryProvider>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ReactQueryProvider>
-        {/* </ThemeProvider> */}
+        >
+          <ReactQueryProvider>
+            <AuthProvider>
+              {children}
+              <Toaster />
+            </AuthProvider>
+          </ReactQueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

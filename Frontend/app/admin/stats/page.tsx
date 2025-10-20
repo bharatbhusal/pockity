@@ -151,8 +151,8 @@ export default function AdminStatsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {auditLogs && auditLogs.length > 0 ? (
-                auditLogs.slice(0, 10).map((log) => (
+              {auditLogs && auditLogs.auditLogs.length > 0 ? (
+                auditLogs.auditLogs.slice(0, 10).map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>
                       <Badge variant="outline">{log.action}</Badge>

@@ -18,7 +18,6 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
 
     // Calculate user statistics
     const totalUsers = users.length;
-    const verifiedUsers = users.filter((user: any) => user.emailVerified).length;
     const adminUsers = users.filter((user: any) => user.role === "ADMIN").length;
     const recentUsers = users.filter((user: any) => {
       const userDate = new Date(user.createdAt);
@@ -61,10 +60,8 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
           },
           userStatistics: {
             total: totalUsers,
-            verified: verifiedUsers,
             admins: adminUsers,
             recentSignups: recentUsers,
-            verificationRate: totalUsers > 0 ? ((verifiedUsers / totalUsers) * 100).toFixed(2) : 0,
           },
           apiKeyStatistics: {
             total: totalApiKeys,
@@ -110,7 +107,6 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
           email: user.email,
           name: user.name,
           role: user.role,
-          emailVerified: user.emailVerified,
           createdAt: user.createdAt,
           statistics: {
             apiKeys: {

@@ -11,13 +11,11 @@ import {
   createApiKeyUpgradeRequestController,
 } from "../controllers/apiKeyControllers";
 import { jwtAuth } from "../middleware/jwtAuth";
-import { requireEmailVerification } from "../middleware/emailVerification";
 import { adminAuth } from "../middleware/adminAuth";
 
 const router = Router();
 
 router.use(jwtAuth);
-router.use(requireEmailVerification);
 
 // API Key request routes
 router.get("/request", getUserApiKeyRequestsController);

@@ -35,11 +35,6 @@ export default function SettingsPage() {
   const [name, setName] = useState(user?.name || "");
   const [profilePicture, setProfilePicture] = useState(user?.picture || "");
 
-  // Password state
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
   const updateProfileMutation = useMutation({
     mutationFn: api.user.updateProfile,
     onSuccess: () => {
@@ -59,26 +54,6 @@ export default function SettingsPage() {
     },
   });
 
-  const changePasswordMutation = useMutation({
-    mutationFn: api.user.changePassword,
-    onSuccess: () => {
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      toast({
-        title: "Password changed",
-        description: "Your password has been changed successfully.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to change password. Please check your current password.",
-        variant: "destructive",
-      });
-    },
-  });
-
   const deleteAccountMutation = useMutation({
     mutationFn: api.user.deleteAccount,
     onSuccess: () => {
@@ -86,7 +61,7 @@ export default function SettingsPage() {
         title: "Account deleted",
         description: "Your account has been deleted successfully.",
       });
-      router.push("/auth/signIn");
+      router.push("/");
     },
     onError: () => {
       toast({
@@ -100,31 +75,6 @@ export default function SettingsPage() {
   const handleUpdateProfile = () => {
     updateProfileMutation.mutate({
       name: name !== user?.name ? name : undefined,
-    });
-  };
-
-  const handleChangePassword = () => {
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "New password and confirmation must match.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    changePasswordMutation.mutate({
-      currentPassword,
-      newPassword,
     });
   };
 
@@ -230,49 +180,28 @@ export default function SettingsPage() {
         >
           <Card>
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your password to keep your account secure</CardDescription>
+              <CardTitle>Authentication</CardTitle>
+              <CardDescription>Your account is secured with Google OAuth</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                />
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <p className="font-medium">Google Account</p>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled
+                  >
+                    Connected ✓
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Your account is protected by Google&apos;s secure authentication system. Email verification is handled
+                  automatically.
+                </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                />
-              </div>
-
-              <Button
-                onClick={handleChangePassword}
-                disabled={changePasswordMutation.isPending}
-              >
-                {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
-              </Button>
             </CardContent>
           </Card>
 

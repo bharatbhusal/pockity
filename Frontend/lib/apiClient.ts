@@ -5,13 +5,8 @@ import type {
   ApiKeyOverview,
   ApiResponse,
   AccountSummary,
-  AuditLog,
-  AuthResponse,
-  ChangePasswordRequest,
+  AuditLogsResponse,
   CreateApiKeyRequest,
-  LoginRequest,
-  OtpResponse,
-  RegisterRequest,
   ReviewApiKeyRequest,
   SystemHealth,
   UpdateProfileRequest,
@@ -19,8 +14,6 @@ import type {
   User,
   UserAnalytics,
   UserProfileData,
-  VerifyLoginRequest,
-  VerifyRegisterRequest,
   UsageStats,
   ApiKeyRequestItem,
 } from "@/types/api";
@@ -30,38 +23,6 @@ import type {
 // =====================
 
 export const authApi = {
-  /**
-   * Request login OTP
-   */
-  requestLogin: async (data: LoginRequest) => {
-    const response = await API.post<ApiResponse<OtpResponse>>("/auth/request-login", data);
-    return response.data;
-  },
-
-  /**
-   * Verify login OTP and authenticate
-   */
-  verifyLogin: async (data: VerifyLoginRequest) => {
-    const response = await API.post<AuthResponse>("/auth/verify-login", data);
-    return response.data;
-  },
-
-  /**
-   * Request registration OTP
-   */
-  requestRegister: async (data: RegisterRequest) => {
-    const response = await API.post<ApiResponse<OtpResponse>>("/auth/request-register", data);
-    return response.data;
-  },
-
-  /**
-   * Verify registration OTP and create account
-   */
-  verifyRegister: async (data: VerifyRegisterRequest) => {
-    const response = await API.post<AuthResponse>("/auth/verify-register", data);
-    return response.data;
-  },
-
   /**
    * Get Google OAuth URL
    */
@@ -97,14 +58,6 @@ export const userApi = {
    */
   updateProfile: async (data: UpdateProfileRequest) => {
     const response = await API.put<ApiResponse<{ user: User }>>("/users/profile", data);
-    return response.data;
-  },
-
-  /**
-   * Change password
-   */
-  changePassword: async (data: ChangePasswordRequest) => {
-    const response = await API.post<ApiResponse<null>>("/users/change-password", data);
     return response.data;
   },
 
@@ -235,8 +188,8 @@ export const adminApi = {
   /**
    * Get audit logs
    */
-  getAuditLogs: async (params?: { limit?: number; offset?: number }) => {
-    const response = await API.get<ApiResponse<AuditLog[]>>("/admin/audit-logs", { params });
+  getAuditLogs: async (params?: { action?: string; userId?: string; limit?: number; offset?: number }) => {
+    const response = await API.get<ApiResponse<AuditLogsResponse>>("/admin/audit-logs", { params });
     return response.data;
   },
 };
