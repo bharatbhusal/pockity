@@ -6,5 +6,11 @@ export const AuditLogRepository = {
   findByApiAccessKeyId: (apiAccessKeyId: string) => prisma.auditLog.findMany({ where: { apiAccessKeyId } }),
   update: (id: string, data: any) => prisma.auditLog.update({ where: { id }, data }),
   delete: (id: string) => prisma.auditLog.delete({ where: { id } }),
-  list: () => prisma.auditLog.findMany(),
+  list: (filters?: { limit?: number; offset?: number }) => {
+    return prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: filters?.limit,
+      skip: filters?.offset,
+    });
+  },
 };

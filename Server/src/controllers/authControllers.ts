@@ -21,7 +21,6 @@ export const oAuthController = async (req: Request, res: Response, next: NextFun
     const googleUser = await getGoogleUser({ id_token, access_token });
     const authResponse = await AuthService.oAuth(googleUser);
 
-    // Log authentication (OAuth handles both login and registration)
     await AuditLogService.logUserAuth(AuditAction.USER_ONBOARD, {
       userId: authResponse.user.id,
       email: authResponse.user.email,
