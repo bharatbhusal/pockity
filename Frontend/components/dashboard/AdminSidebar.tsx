@@ -83,16 +83,6 @@ export function AdminSidebar() {
                 </Link>
               );
             })}
-
-            <div className="pt-4">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <LayoutDashboard className="h-5 w-5" />
-                User Dashboard
-              </Link>
-            </div>
           </nav>
 
           {/* User section */}

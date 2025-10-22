@@ -80,12 +80,6 @@ export default function AdminDashboardPage() {
           description={`${health?.apiKeyRequestStatistics.total || 0} total`}
           icon={TrendingUp}
         />
-        <StatCard
-          title="System Status"
-          value={health?.systemHealth.status === "healthy" ? "Healthy" : "Issue"}
-          description={`${Math.floor((health?.systemHealth.uptime || 0) / 3600)}h uptime`}
-          icon={Activity}
-        />
       </div>
 
       {/* Charts */}
