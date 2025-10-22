@@ -62,12 +62,6 @@ export default function AdminUsersPage() {
           icon={Users}
         />
         <StatCard
-          title="Verified Users"
-          value={userAnalytics?.users.filter((u) => u.emailVerified).length.toLocaleString() || "0"}
-          description="Email verified"
-          icon={UserCheck}
-        />
-        <StatCard
           title="Admin Users"
           value={userAnalytics?.users.filter((u) => u.role === "ADMIN").length.toLocaleString() || "0"}
           description="System administrators"
@@ -114,11 +108,6 @@ export default function AdminUsersPage() {
                           </Avatar>
                           <div>
                             <p className="font-medium">{user.name || "No name"}</p>
-                            {user.emailVerified ? (
-                              <p className="text-xs text-green-600">Verified</p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Not verified</p>
-                            )}
                           </div>
                         </div>
                       </TableCell>

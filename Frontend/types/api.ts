@@ -198,7 +198,6 @@ export interface UserWithStats {
   email: string;
   name: string | null;
   role: string;
-  emailVerified: boolean;
   createdAt: Date;
   statistics: {
     apiKeys: {
