@@ -198,6 +198,7 @@ export interface UserWithStats {
   email: string;
   name: string | null;
   role: string;
+  picture: string | null;
   createdAt: Date;
   statistics: {
     apiKeys: {

@@ -110,6 +110,7 @@ export const getUserAnalyticsController = async (req: Request, res: Response, ne
           email: user.email,
           name: user.name,
           role: user.role,
+          picture: user.picture,
           createdAt: user.createdAt,
           statistics: {
             apiKeys: {

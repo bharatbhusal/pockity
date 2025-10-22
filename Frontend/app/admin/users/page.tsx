@@ -5,10 +5,10 @@ import { api } from "@/lib/apiClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, UserPlus } from "lucide-react";
+import { Users, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
@@ -102,6 +102,10 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
+                            <AvatarImage
+                              src={user.picture || undefined}
+                              alt={user.name || undefined}
+                            />
                             <AvatarFallback>
                               {user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
                             </AvatarFallback>
