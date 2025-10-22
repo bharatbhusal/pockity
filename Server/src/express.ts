@@ -8,15 +8,16 @@ import { ApiKeyRouter } from "./routes/apiKeyRoutes";
 import { StorageRouter } from "./routes/storageRoutes";
 import { UserRouter } from "./routes/userRoutes";
 import { AdminDashboardRouter } from "./routes/adminDashboardRoutes";
+import { env } from "./config/env";
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3000", // ✅ must be a string (not array) when credentials are used
-    credentials: true, // ✅ enable cookies/auth headers
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], // ✅ include OPTIONS for preflight
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"], // ✅ specify explicitly instead of "*"
+    origin: env.FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   }),
 );
 
