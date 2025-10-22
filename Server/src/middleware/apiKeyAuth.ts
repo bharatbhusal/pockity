@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import bcrypt from "bcrypt";
 import { ApiKeyRepository } from "../repositories/apiKeyRepository";
 import { PockityErrorAuthentication } from "../utils/response/PockityErrorClasses";
+import { decrypt, encrypt } from "../utils/encryption";
 
 export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -34,7 +34,7 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     }
 
     // Verify the secret key
-    const isValidSecret = await bcrypt.compare(secretKey, apiKey.secretHash);
+    const isValidSecret = secretKey.trim() === decrypt(apiKey.secretHash);
     if (!isValidSecret) {
       throw new PockityErrorAuthentication({
         message: "Invalid API key credentials",
