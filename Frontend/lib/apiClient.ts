@@ -9,12 +9,9 @@ import type {
   CreateApiKeyRequest,
   ReviewApiKeyRequest,
   SystemHealth,
-  UpdateProfileRequest,
   UpgradeApiKeyRequest,
-  User,
   UserAnalytics,
   UserProfileData,
-  UsageStats,
   ApiKeyRequestItem,
 } from "@/types/api";
 
@@ -54,26 +51,10 @@ export const userApi = {
   },
 
   /**
-   * Update user profile
-   */
-  updateProfile: async (data: UpdateProfileRequest) => {
-    const response = await API.put<ApiResponse<{ user: User }>>("/users/profile", data);
-    return response.data;
-  },
-
-  /**
    * Get account summary (user + api keys + usage)
    */
   getAccountSummary: async () => {
     const response = await API.get<ApiResponse<AccountSummary>>("/users/summary");
-    return response.data;
-  },
-
-  /**
-   * Delete user account
-   */
-  deleteAccount: async () => {
-    const response = await API.delete<ApiResponse<null>>("/users/account");
     return response.data;
   },
 };
@@ -103,7 +84,7 @@ export const apiKeyApi = {
    * Revoke an API key
    */
   revokeApiKey: async (id: string) => {
-    const response = await API.delete<ApiResponse<null>>(`/apiKeys/${id}`);
+    const response = await API.delete<ApiResponse<ApiKey>>(`/apiKeys/${id}`);
     return response.data;
   },
 
@@ -111,7 +92,7 @@ export const apiKeyApi = {
    * Get user's API key requests
    */
   getUserRequests: async () => {
-    const response = await API.get<ApiResponse<ApiKey[]>>("/apiKeys/request");
+    const response = await API.get<ApiResponse<ApiKeyRequestItem[]>>("/apiKeys/request");
     return response.data;
   },
 
@@ -181,7 +162,7 @@ export const adminApi = {
    * Get API key overview
    */
   getApiKeyOverview: async () => {
-    const response = await API.get<ApiResponse<ApiKeyOverview>>("/admin/apiKeyss");
+    const response = await API.get<ApiResponse<ApiKeyOverview>>("/admin/api-keys");
     return response.data;
   },
 
@@ -194,27 +175,12 @@ export const adminApi = {
   },
 };
 
-// =====================
-// Storage APIs
-// =====================
-
-export const storageApi = {
-  /**
-   * Get usage statistics for an API key
-   */
-  getUsageStats: async (apiKeyId: string) => {
-    const response = await API.get<ApiResponse<UsageStats>>(`/storage/usage/${apiKeyId}`);
-    return response.data;
-  },
-};
-
 // Export all APIs
 export const api = {
   auth: authApi,
   user: userApi,
   apiKey: apiKeyApi,
   admin: adminApi,
-  storage: storageApi,
 };
 
 export default api;

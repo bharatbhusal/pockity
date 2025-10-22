@@ -84,7 +84,6 @@ export default function AdminStatsPage() {
         <StatCard
           title="Total Users"
           value={health?.userStatistics.total.toLocaleString() || "0"}
-          description={`${health?.userStatistics.verified || 0} verified`}
           icon={Database}
         />
         <StatCard

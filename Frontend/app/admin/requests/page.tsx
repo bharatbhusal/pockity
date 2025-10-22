@@ -145,7 +145,7 @@ export default function AdminRequestsPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Requested Storage in GiB</span>
-                        <Badge variant="outline">{request.requestedStorageGB}</Badge>
+                        <Badge variant="outline">{request.requestedStorage}</Badge>
                       </div>
                       {/* {request.currentStorageGB && (
                         <div className="flex items-center justify-between">
@@ -222,7 +222,7 @@ export default function AdminRequestsPage() {
                     <div className="grid gap-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Requested Storage in GiB</span>
-                        <Badge variant="outline">{request.requestedStorageGB}</Badge>
+                        <Badge variant="outline">{request.requestedStorage}</Badge>
                       </div>
                     </div>
                     {request.reviewerComment && (

@@ -26,7 +26,7 @@ const createApiKeyCreateRequestSchema = z.object({
   reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)").max(500, "Reason too long"),
 });
 const createApiKeyUpgradeRequestSchema = z.object({
-  apiAccessKeyId: z.string().min(1, "API access key ID is required"),
+  accessKeyId: z.string().min(1, "API access key ID is required"),
   requestedStorageGB: z.number().positive().max(1000, "Maximum 1000GB allowed"),
   requestedObjects: z.number().positive().max(1000000, "Maximum 1M objects allowed"),
   reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)").max(500, "Reason too long"),
@@ -42,10 +42,10 @@ export const listApiKeysController = async (req: Request, res: Response, next: N
     // Get all API keys for the user
     const apiKeys = await ApiKeyRepository.findByUserId(req.user.id);
 
-    // Don't return secret hashes
     const sanitizedKeys = apiKeys.map((key: any) => ({
       id: key.id,
-      apiAccessKeyId: key.accessKeyId,
+      accessKeyId: key.accessKeyId,
+      secretHash: key.secretHash,
       name: key.name,
       isActive: key.isActive,
       createdAt: key.createdAt,
@@ -116,9 +116,11 @@ export const revokeApiKeyController = async (req: Request, res: Response, next: 
         message: "API key revoked successfully",
         data: {
           id: revokedKey.id,
-          apiAccessKeyId: revokedKey.accessKeyId,
+          accessKeyId: revokedKey.accessKeyId,
           name: revokedKey.name,
           isActive: revokedKey.isActive,
+          createdAt: revokedKey.createdAt,
+          lastUsedAt: revokedKey.lastUsedAt,
           revokedAt: revokedKey.revokedAt,
         },
       }),
@@ -156,7 +158,8 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
         message: "API key retrieved successfully",
         data: {
           id: apiKey.id,
-          apiAccessKeyId: apiKey.accessKeyId,
+          accessKeyId: apiKey.accessKeyId,
+          secretHash: apiKey.secretHash,
           name: apiKey.name,
           isActive: apiKey.isActive,
           createdAt: apiKey.createdAt,
@@ -222,16 +225,16 @@ export const createApiKeyCreateRequestController = async (req: Request, res: Res
         success: true,
         message: "API key create request submitted successfully. Admin will review your request.",
         data: {
-          request: {
-            id: apiKeyRequest.id,
-            keyName: apiKeyRequest.keyName,
-            requestType: apiKeyRequest.requestType,
-            requestedStorageGB,
-            requestedObjects,
-            reason: apiKeyRequest.reason,
-            status: apiKeyRequest.status,
-            createdAt: apiKeyRequest.createdAt,
-          },
+          id: apiKeyRequest.id,
+          requestedStorage: Number(apiKeyRequest.requestedStorage),
+          requestedObjects: apiKeyRequest.requestedObjects,
+          reason: apiKeyRequest.reason,
+          status: apiKeyRequest.status,
+          accessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
+          requestType: apiKeyRequest.requestType,
+          reviewerComment: apiKeyRequest.reviewerComment,
+          reviewedAt: apiKeyRequest.reviewedAt,
+          createdAt: apiKeyRequest.createdAt,
         },
       }),
     );
@@ -253,7 +256,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
       });
     }
 
-    const { requestedStorageGB, requestedObjects, reason, apiAccessKeyId } = validationResult.data;
+    const { requestedStorageGB, requestedObjects, reason, accessKeyId } = validationResult.data;
     const user = req.user;
 
     // Check if user already has a pending request
@@ -271,7 +274,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
     const requestedStorage = BigInt(Math.ceil(requestedStorageGB * 1024 * 1024 * 1024));
 
     // Create the request
-    const apiKey = await ApiKeyRepository.findByAccessKeyId(apiAccessKeyId);
+    const apiKey = await ApiKeyRepository.findByAccessKeyId(accessKeyId);
     if (!apiKey) {
       throw new PockityErrorBadRequest({ message: "API access key ID not found", httpStatusCode: 404 });
     }
@@ -306,7 +309,7 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
       requestedObjects,
       reason,
       requestType: API_REQUEST_TYPE.UPGRADE,
-      apiAccessKeyId,
+      apiAccessKeyId: accessKeyId,
     });
 
     await EmailService.sendNewApiKeyRequestToAdmin(apiKeyRequest.id);
@@ -323,16 +326,18 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
         success: true,
         message: "API key upgrade request submitted successfully. Admin will review your request.",
         data: {
-          request: {
-            id: apiKeyRequest.id,
-            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
-            requestType: apiKeyRequest.requestType,
-            requestedStorageGB,
-            requestedObjects,
-            reason: apiKeyRequest.reason,
-            status: apiKeyRequest.status,
-            createdAt: apiKeyRequest.createdAt,
-          },
+          id: apiKeyRequest.id,
+          requestedStorage: Number(apiKeyRequest.requestedStorage),
+          requestedObjects: apiKeyRequest.requestedObjects,
+          currentStorage: Number(apiKey?.totalStorage) || undefined,
+          currentObjects: apiKey?.totalObjects || undefined,
+          reason: apiKeyRequest.reason,
+          status: apiKeyRequest.status,
+          accessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
+          requestType: apiKeyRequest.requestType,
+          reviewerComment: apiKeyRequest.reviewerComment,
+          reviewedAt: apiKeyRequest.reviewedAt,
+          createdAt: apiKeyRequest.createdAt,
         },
       }),
     );
@@ -341,21 +346,21 @@ export const createApiKeyUpgradeRequestController = async (req: Request, res: Re
   }
 };
 
-// Get user's API key requests
-export const getUserApiKeyRequestsController = async (req: Request, res: Response, next: NextFunction) => {
+// Get API key requests
+export const getApiKeyRequestsController = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
     const requests = await ApiKeyRequestRepository.findByUserId(user.id);
 
     const formattedRequests = requests.map((request: any) => ({
       id: request.id,
-      requestedStorageGB: Number(request.requestedStorage) / (1024 * 1024 * 1024),
+      requestedStorage: Number(request.requestedStorage),
       requestedObjects: request.requestedObjects,
       reason: request.reason,
       status: request.status,
       requestType: request.requestType,
       keyName: request.keyName || undefined,
-      apiAccessKeyId: request.apiAccessKeyId || undefined,
+      accessKeyId: request.apiAccessKeyId || undefined,
       reviewerComment: request.reviewerComment,
       reviewedAt: request.reviewedAt,
       createdAt: request.createdAt,
@@ -366,6 +371,58 @@ export const getUserApiKeyRequestsController = async (req: Request, res: Respons
         success: true,
         message: "API key requests retrieved successfully",
         data: formattedRequests,
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get a specific API key request
+export const getApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    var existingApiKey;
+
+    const apiKeyRequest = await ApiKeyRequestRepository.findById(id);
+    if (!apiKeyRequest) {
+      throw new PockityErrorNotFound({
+        message: "API key request not found",
+        httpStatusCode: 404,
+      });
+    }
+
+    if (apiKeyRequest.requestType === "UPGRADE") {
+      existingApiKey = await ApiKeyRepository.findByAccessKeyId(apiKeyRequest.apiAccessKeyId!);
+    }
+
+    // Check if user owns the request (unless they're admin)
+    if (user.role !== "ADMIN" && apiKeyRequest.userId !== user.id) {
+      throw new PockityErrorUnauthorized({
+        message: "Unauthorized to view this request",
+        httpStatusCode: 403,
+      });
+    }
+
+    res.status(200).json(
+      new PockityBaseResponse({
+        success: true,
+        message: "API key request retrieved successfully",
+        data: {
+          id: apiKeyRequest.id,
+          requestedStorage: Number(apiKeyRequest.requestedStorage),
+          requestedObjects: apiKeyRequest.requestedObjects,
+          currentStorage: Number(existingApiKey?.totalStorage) || undefined,
+          currentObjects: existingApiKey?.totalObjects || undefined,
+          reason: apiKeyRequest.reason,
+          status: apiKeyRequest.status,
+          accessKeyId: apiKeyRequest.apiAccessKeyId || undefined,
+          requestType: apiKeyRequest.requestType,
+          reviewerComment: apiKeyRequest.reviewerComment,
+          reviewedAt: apiKeyRequest.reviewedAt,
+          createdAt: apiKeyRequest.createdAt,
+        },
       }),
     );
   } catch (error) {
@@ -391,18 +448,13 @@ export const getAllApiKeyRequestsController = async (req: Request, res: Response
 
     const formattedRequests = requests.map((request: any) => ({
       id: request.id,
-      user: {
-        id: request.user.id,
-        email: request.user.email,
-        name: request.user.name,
-      },
-      requestedStorageGB: Number(request.requestedStorage) / (1024 * 1024 * 1024),
+      requestedStorage: Number(request.requestedStorage),
       requestedObjects: request.requestedObjects,
       reason: request.reason,
       status: request.status,
-      requestType: request.requestType || undefined,
+      requestType: request.requestType,
       keyName: request.keyName || undefined,
-      apiAccessKeyId: request.apiAccessKeyId || undefined,
+      accessKeyId: request.apiAccessKeyId || undefined,
       reviewerComment: request.reviewerComment,
       reviewedAt: request.reviewedAt,
       createdAt: request.createdAt,
@@ -418,54 +470,6 @@ export const getAllApiKeyRequestsController = async (req: Request, res: Response
             limit: Number(limit),
             offset: Number(offset),
             total: formattedRequests.length,
-          },
-        },
-      }),
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get a specific API key request
-export const getApiKeyRequestController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const user = req.user;
-
-    const apiKeyRequest = await ApiKeyRequestRepository.findById(id);
-    if (!apiKeyRequest) {
-      throw new PockityErrorNotFound({
-        message: "API key request not found",
-        httpStatusCode: 404,
-      });
-    }
-
-    // Check if user owns the request (unless they're admin)
-    if (user.role !== "ADMIN" && apiKeyRequest.userId !== user.id) {
-      throw new PockityErrorUnauthorized({
-        message: "Unauthorized to view this request",
-        httpStatusCode: 403,
-      });
-    }
-
-    res.status(200).json(
-      new PockityBaseResponse({
-        success: true,
-        message: "API key request retrieved successfully",
-        data: {
-          request: {
-            id: apiKeyRequest.id,
-            user: user.role === "ADMIN" ? apiKeyRequest.user : undefined,
-            requestedStorageGB: Number(apiKeyRequest.requestedStorage) / (1024 * 1024 * 1024),
-            requestedObjects: apiKeyRequest.requestedObjects,
-            reason: apiKeyRequest.reason,
-            status: apiKeyRequest.status,
-            apiAccessKeyId: apiKeyRequest.apiAccessKeyId,
-            requestType: apiKeyRequest.requestType,
-            reviewerComment: apiKeyRequest.reviewerComment,
-            reviewedAt: apiKeyRequest.reviewedAt,
-            createdAt: apiKeyRequest.createdAt,
           },
         },
       }),
@@ -591,18 +595,17 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
         success: true,
         message: `API key request ${approved ? "approved" : "rejected"} successfully`,
         data: {
-          request: {
-            id: updatedRequest.id,
-            user: updatedRequest.user,
-            requestedStorageGB: Number(updatedRequest.requestedStorage) / (1024 * 1024 * 1024),
-            requestedObjects: updatedRequest.requestedObjects,
-            reason: updatedRequest.reason,
-            status: updatedRequest.status,
-            apiAccessKeyId: apiKeyRequest.apiAccessKeyId || newApiKey?.accessKeyId || undefined,
-            reviewerComment: updatedRequest.reviewerComment,
-            reviewedAt: updatedRequest.reviewedAt,
-            createdAt: updatedRequest.createdAt,
-          },
+          id: updatedRequest.id,
+          requestedStorage: Number(updatedRequest.requestedStorage),
+          requestedObjects: updatedRequest.requestedObjects,
+          reason: updatedRequest.reason,
+          status: updatedRequest.status,
+          requestType: updatedRequest.requestType,
+          keyName: updatedRequest.keyName || undefined,
+          accessKeyId: updatedRequest.apiAccessKeyId || undefined,
+          reviewerComment: updatedRequest.reviewerComment,
+          reviewedAt: updatedRequest.reviewedAt,
+          createdAt: updatedRequest.createdAt,
         },
       }),
     );

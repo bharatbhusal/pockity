@@ -66,7 +66,6 @@ export default function AdminDashboardPage() {
         <StatCard
           title="Total Users"
           value={health?.userStatistics.total.toLocaleString() || "0"}
-          description={`${health?.userStatistics.verified || 0} verified`}
           icon={Users}
         />
         <StatCard
@@ -77,8 +76,8 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           title="Pending Requests"
-          value={health?.requestStatistics.pending.toLocaleString() || "0"}
-          description={`${health?.requestStatistics.total || 0} total`}
+          value={health?.apiKeyRequestStatistics.pending.toLocaleString() || "0"}
+          description={`${health?.apiKeyRequestStatistics.total || 0} total`}
           icon={TrendingUp}
         />
         <StatCard
@@ -136,9 +135,9 @@ export default function AdminDashboardPage() {
           >
             <BarChart
               data={[
-                { status: "Pending", count: health?.requestStatistics.pending || 0 },
-                { status: "Approved", count: health?.requestStatistics.approved || 0 },
-                { status: "Rejected", count: health?.requestStatistics.rejected || 0 },
+                { status: "Pending", count: health?.apiKeyRequestStatistics.pending || 0 },
+                { status: "Approved", count: health?.apiKeyRequestStatistics.approved || 0 },
+                { status: "Rejected", count: health?.apiKeyRequestStatistics.rejected || 0 },
               ]}
             >
               <CartesianGrid strokeDasharray="3 3" />
@@ -155,9 +154,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Pending Requests Alert */}
-      {health && health.requestStatistics.pending > 0 && (
+      {health && health.apiKeyRequestStatistics.pending > 0 && (
         <div className="rounded-lg border border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-950">
-          <p className="font-medium">⚠️ {health.requestStatistics.pending} API key request(s) pending review</p>
+          <p className="font-medium">⚠️ {health.apiKeyRequestStatistics.pending} API key request(s) pending review</p>
           <p className="mt-1 text-sm text-muted-foreground">Navigate to Requests to review pending applications</p>
         </div>
       )}

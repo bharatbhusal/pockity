@@ -21,25 +21,43 @@ export interface User {
   name?: string;
   role: "USER" | "ADMIN";
   picture?: string;
-  createdAt: string;
+  createdAt: Date;
 }
 
 export interface ApiKey {
   id: string;
   accessKeyId: string;
+  secretHash?: string;
   name: string | null;
   isActive: boolean;
-  createdAt: string;
-  lastUsedAt: string | null;
-  revokedAt: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  revokedAt: Date | null;
 }
 
-// Extended ApiKey with usage info (from storage APIs)
-export interface ApiKeyWithUsage extends ApiKey {
-  totalStorage: number;
-  totalObjects: number;
-  currentBytesUsed?: number;
-  currentObjects?: number;
+export interface ApiKeyAnalytics {
+  summary: {
+    totalObjectsUploaded: number;
+    totalStorageUsed: number;
+    totalStorageLimit: number;
+    totalObjectsLimit: number;
+    usagePercentage: {
+      bytes: number;
+      objects: number;
+    };
+  };
+  fileTypeBreakdown: Array<{
+    category: string;
+    count: number;
+    totalSize: number;
+    percentage: number;
+  }>;
+  recentFiles: Array<{
+    key: string;
+    size: number;
+    category: string;
+    lastModified: Date;
+  }>;
 }
 
 // ============================================================================
@@ -48,22 +66,18 @@ export interface ApiKeyWithUsage extends ApiKey {
 
 export interface ApiKeyRequestItem {
   id: string;
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
-  };
-  requestType: "CREATE" | "UPGRADE";
-  keyName: string | null;
-  apiAccessKeyId: string | null;
-  requestedStorageGB: number;
+  requestedStorage: number;
   requestedObjects: number;
+  currentStorage?: number;
+  currentObjects?: number;
   reason: string | null;
+  keyName?: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  accessKeyId?: string;
+  requestType: "CREATE" | "UPGRADE";
   reviewerComment: string | null;
-  reviewedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  reviewedAt: Date | null;
+  createdAt: Date;
 }
 
 export interface ApiKeyRequestsResponse {
@@ -86,13 +100,25 @@ export interface UserProfileData {
 
 export interface AccountSummary {
   user: User;
-  totalApiKeys: number;
-  activeApiKeys: number;
-  totalRequests: number;
-  totalStorage: number;
-  recentActivity: {
-    lastLogin: string | null;
-    lastApiKeyCreated: string | null;
+  apiKeysWithStats: {
+    id: string;
+    accessKeyId: string;
+    name: string | null;
+    isActive: boolean;
+    createdAt: Date;
+    lastUsedAt: Date | null;
+    revokedAt: Date | null;
+    stats: Array<{
+      bytesUsed: number;
+      objects: number;
+      storageLimit: number;
+      objectsLimit: number;
+      lastUpdated: Date;
+      usagePercentage: {
+        bytes: number;
+        objects: number;
+      };
+    }>;
   };
 }
 
@@ -118,7 +144,7 @@ export interface AuditLog {
   action: string;
   detail: string | null;
   metadata: Record<string, unknown> | null;
-  createdAt: string;
+  createdAt: Date;
 }
 
 export interface AuditLogsResponse {
@@ -142,14 +168,12 @@ export interface SystemHealth {
   systemHealth: {
     status: "healthy" | "degraded" | "down";
     uptime: number;
-    timestamp: string;
+    timestamp: Date;
   };
   userStatistics: {
     total: number;
-    verified: number;
     admins: number;
     recentSignups: number;
-    verificationRate: string;
   };
   apiKeyStatistics: {
     total: number;
@@ -161,7 +185,7 @@ export interface SystemHealth {
     recentActions: number;
     totalAuditLogs: number;
   };
-  requestStatistics: {
+  apiKeyRequestStatistics: {
     pending: number;
     approved: number;
     rejected: number;
@@ -175,7 +199,7 @@ export interface UserWithStats {
   name: string | null;
   role: string;
   emailVerified: boolean;
-  createdAt: string;
+  createdAt: Date;
   statistics: {
     apiKeys: {
       total: number;
@@ -201,40 +225,49 @@ export interface UserAnalytics {
 }
 
 export interface ApiKeyOverviewItem {
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
+  id: string;
+  accessKeyId: string;
+  apiKeyName: string | null;
+  summary: {
+    totalObjectsUploaded: number;
+    totalStorageUsed: number;
+    totalStorageLimit: number;
+    totalObjectsLimit: number;
+    usagePercentage: {
+      bytes: number;
+      objects: number;
+    };
   };
-  apiKeys: Array<{
-    id: string;
-    accessKeyId: string;
-    name: string | null;
-    isActive: boolean;
-    createdAt: string;
-    lastUsedAt: string | null;
-    revokedAt: string | null;
-  }>;
+  fileTypeBreakdown: {
+    category: string;
+    count: number;
+    totalSize: number;
+    totalSizeFormatted: string;
+    percentage: number;
+  }[];
+  recentFiles: {
+    key: string;
+    size: number;
+    sizeFormatted: string;
+    lastModified: Date;
+    category: string;
+  }[];
 }
 
 export interface ApiKeyOverview {
-  overview: ApiKeyOverviewItem[];
-  summary: {
-    totalUsers: number;
-    totalApiKeys: number;
-    activeKeys: number;
-    revokedKeys: number;
+  apiKeys: ApiKeyOverviewItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    page: number;
+    totalPages: number;
+    totalItems: number;
   };
 }
 
 // ============================================================================
 // REQUEST TYPES (for API calls)
 // ============================================================================
-
-export interface UpdateProfileRequest {
-  name?: string;
-  email?: string;
-}
 
 export interface CreateApiKeyRequest {
   keyName: string;
@@ -244,7 +277,7 @@ export interface CreateApiKeyRequest {
 }
 
 export interface UpgradeApiKeyRequest {
-  apiAccessKeyId: string;
+  accessKeyId: string;
   requestedStorageGB: number;
   requestedObjects: number;
   reason: string;
@@ -253,26 +286,6 @@ export interface UpgradeApiKeyRequest {
 export interface ReviewApiKeyRequest {
   approved: boolean;
   reviewerComment?: string;
-}
-
-// ============================================================================
-// LEGACY/DEPRECATED TYPES (for backward compatibility)
-// ============================================================================
-
-// Old ApiKey type that some components might still use
-export interface LegacyApiKey {
-  id: string;
-  key: string; // Maps to apiAccessKeyId
-  name: string;
-  userId: string;
-  tier: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  status: "ACTIVE" | "REVOKED" | "SUSPENDED";
-  createdAt: string;
-  expiresAt?: string;
-  lastUsedAt?: string;
-  requestsPerDay: number;
-  requestsPerMonth: number;
-  storageLimit: number;
 }
 
 // ============================================================================

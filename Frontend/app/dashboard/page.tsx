@@ -4,7 +4,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/apiClient";
-import { Key, TrendingUp, Database, Clock } from "lucide-react";
+import { Key } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: summary, isLoading: isLoadingSummary } = useQuery({
+  const { isLoading: isLoadingSummary } = useQuery({
     queryKey: ["account", "summary"],
     queryFn: async () => {
       const response = await api.user.getAccountSummary();
@@ -69,8 +69,6 @@ export default function DashboardPage() {
   }
 
   const activeKeys = apiKeys?.filter((key) => key.isActive && !key.revokedAt).length || 0;
-  const totalRequests = summary?.totalRequests || 0;
-  const totalStorage = summary?.totalStorage || 0;
 
   return (
     <div className="space-y-6">
@@ -95,24 +93,6 @@ export default function DashboardPage() {
           value={activeKeys}
           description={`${apiKeys?.length || 0} total keys`}
           icon={Key}
-        />
-        <StatCard
-          title="Total Requests"
-          value={totalRequests.toLocaleString()}
-          description="All time"
-          icon={TrendingUp}
-        />
-        <StatCard
-          title="Storage Used"
-          value={`${(totalStorage / 1024 / 1024).toFixed(2)} MB`}
-          description="Across all keys"
-          icon={Database}
-        />
-        <StatCard
-          title="Last Activity"
-          value="2 hours ago"
-          description="Most recent request"
-          icon={Clock}
         />
       </div>
 
@@ -177,7 +157,7 @@ export default function DashboardPage() {
               >
                 <div className="space-y-1">
                   <p className="font-medium">{key.name || "Unnamed Key"}</p>
-                  <p className="text-sm text-muted-foreground">{key.apiAccessKeyId.slice(0, 20)}...</p>
+                  <p className="text-sm text-muted-foreground">{key.accessKeyId.slice(0, 20)}...</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={key.isActive && !key.revokedAt ? "default" : "destructive"}>

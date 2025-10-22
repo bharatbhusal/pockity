@@ -42,6 +42,7 @@ export default function ApiKeysPage() {
   const [requestedObjects, setRequestedObjects] = useState<string>("1000");
   const [reason, setReason] = useState("");
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  const [visibleSecret, setVisibleSecret] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -111,6 +112,17 @@ export default function ApiKeysPage() {
       return newSet;
     });
   };
+  const toggleSecretVisibility = (keyId: string) => {
+    setVisibleSecret((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(keyId)) {
+        newSet.delete(keyId);
+      } else {
+        newSet.add(keyId);
+      }
+      return newSet;
+    });
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -154,8 +166,7 @@ export default function ApiKeysPage() {
     );
   }
 
-  const pendingRequests = requests?.filter((r) => !r.isActive) || [];
-  console.log(pendingRequests);
+  const pendingRequests = requests?.filter((r) => r.status === "PENDING") || [];
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -269,7 +280,7 @@ export default function ApiKeysPage() {
                   className="flex items-center justify-between rounded-lg border p-4"
                 >
                   <div>
-                    <p className="font-medium">{request.name}</p>
+                    <p className="font-medium">{request.keyName}</p>
                     {/* <p className="text-sm text-muted-foreground">{request.req} GiB</p> */}
                   </div>
                   <Badge variant="secondary">PENDING</Badge>
@@ -314,10 +325,10 @@ export default function ApiKeysPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>API Key</Label>
+                  <Label>ACCESS KEY ID</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <div className="flex-1 overflow-hidden rounded-md border bg-muted px-3 py-2 font-mono text-xs sm:text-sm">
-                      {visibleKeys.has(key.id) ? key.apiAccessKeyId : "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●"}
+                      {visibleKeys.has(key.id) ? key.accessKeyId : "******************************"}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -331,7 +342,33 @@ export default function ApiKeysPage() {
                       <Button
                         size="icon"
                         variant="outline"
-                        onClick={() => copyToClipboard(key.apiAccessKeyId)}
+                        onClick={() => copyToClipboard(key.accessKeyId)}
+                        className="flex-1 sm:flex-none"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>SECRET HASH</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex-1 overflow-hidden rounded-md border bg-muted px-3 py-2 font-mono text-xs sm:text-sm">
+                      {visibleSecret.has(key.id) ? key.secretHash : "******************************"}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => toggleSecretVisibility(key.id)}
+                        className="flex-1 sm:flex-none"
+                      >
+                        {visibleSecret.has(key.id) ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => copyToClipboard(key.secretHash!)}
                         className="flex-1 sm:flex-none"
                       >
                         <Copy className="h-4 w-4" />

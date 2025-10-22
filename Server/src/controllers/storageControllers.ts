@@ -11,6 +11,7 @@ import {
 } from "../utils/response/PockityErrorClasses";
 import { formatFileSize } from "../utils/storageHelpher";
 import { sanitizeString } from "../utils/sanitizeString";
+import { ApiKeyRepository } from "../repositories";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -377,9 +378,11 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
   try {
     const apiAccessKeyId = req.apiAccessKeyId!; // From API key middleware (if available)
 
-    // Get all files to analyze
-    const files = await S3Service.listUserFiles(apiAccessKeyId);
-    const usageData = await UsageService.getUsageWithQuota(apiAccessKeyId);
+    const [apiKey, files, usageData] = await Promise.all([
+      ApiKeyRepository.findByAccessKeyId(apiAccessKeyId),
+      S3Service.listUserFiles(apiAccessKeyId),
+      UsageService.getUsageWithQuota(apiAccessKeyId),
+    ]);
 
     // Analyze file types
     const fileTypeAnalysis: Record<string, { count: number; totalSize: number }> = {};
@@ -411,11 +414,15 @@ export const getStorageAnalyticsController = async (req: Request, res: Response,
         success: true,
         message: "Storage analytics retrieved successfully",
         data: {
+          id: apiKey?.id,
+          accessKeyId: apiKey?.accessKeyId,
+          apiKeyName: apiKey?.name,
           summary: {
-            totalFiles: files.length,
-            totalSize,
-            totalSizeFormatted: formatFileSize(totalSize),
-            quotaUsagePercentage: usageData.usagePercentage,
+            totalObjectsUploaded: files.length,
+            totalStorageUsed: Number(usageData.usage.bytesUsed),
+            totalStorageLimit: Number(apiKey?.totalStorage),
+            totalObjectsLimit: apiKey?.totalObjects,
+            usagePercentage: usageData.usagePercentage,
           },
           fileTypeBreakdown,
           recentFiles: files

@@ -4,7 +4,7 @@ import {
   revokeApiKeyController,
   getApiKeyController,
   createApiKeyCreateRequestController,
-  getUserApiKeyRequestsController,
+  getApiKeyRequestsController,
   getApiKeyRequestController,
   reviewApiKeyRequestController,
   getAllApiKeyRequestsController,
@@ -18,7 +18,7 @@ const router = Router();
 router.use(jwtAuth);
 
 // API Key request routes
-router.get("/request", getUserApiKeyRequestsController);
+router.get("/request", getApiKeyRequestsController);
 router.post("/request/create", createApiKeyCreateRequestController);
 router.post("/request/upgrade", createApiKeyUpgradeRequestController);
 router.get("/request/:id", getApiKeyRequestController);

@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import { UserRepository, ApiKeyRepository, AuditLogRepository, ApiKeyRequestRepository } from "../repositories";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { API_REQUEST_STATUS, AuditAction, AuditLogService } from "../services/auditLogService";
+import { S3Service } from "../services/s3Service";
+import { UsageService } from "../services/usageService";
+import { formatFileSize } from "../utils/storageHelpher";
 
 // Get overall system health and statistics
 export const getSystemHealthController = async (req: Request, res: Response, next: NextFunction) => {
@@ -73,7 +76,7 @@ export const getSystemHealthController = async (req: Request, res: Response, nex
             recentActions: recentAuditLogs.length,
             totalAuditLogs: auditLogs.length,
           },
-          requestStatistics: {
+          apiKeyRequestStatistics: {
             pending: pendingRequests,
             approved: approvedRequests,
             rejected: rejectedRequests,
@@ -194,53 +197,98 @@ export const getSystemAuditLogsController = async (req: Request, res: Response, 
   }
 };
 
-// Get API key overview for admin
+// Get storage analytics for multiple API keys with pagination, offset, and filter
 export const getApiKeyOverviewController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const admin = req.adminUser;
+    // Query params
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = parseInt(req.query.offset as string) || 0; // Added offset support
+    const search = (req.query.search as string)?.toLowerCase() || "";
 
-    const apiKeys = await ApiKeyRepository.list();
+    // Get all API keys
+    let apiKeys = await ApiKeyRepository.list();
 
-    // Group API keys by user and add usage statistics
-    const apiKeysByUser = new Map();
-
-    for (const apiKey of apiKeys) {
-      if (!apiKeysByUser.has(apiKey.userId)) {
-        const user = await UserRepository.findById(apiKey.userId);
-        apiKeysByUser.set(apiKey.userId, {
-          user: {
-            id: user?.id,
-            email: user?.email,
-            name: user?.name,
-          },
-          apiKeys: [],
-        });
-      }
-
-      apiKeysByUser.get(apiKey.userId).apiKeys.push({
-        id: apiKey.id,
-        accessKeyId: apiKey.accessKeyId,
-        name: apiKey.name,
-        isActive: apiKey.isActive,
-        createdAt: apiKey.createdAt,
-        lastUsedAt: apiKey.lastUsedAt,
-        revokedAt: apiKey.revokedAt,
-      });
+    // Filter by search if provided
+    if (search) {
+      apiKeys = apiKeys.filter(
+        (key) => key.name?.toLowerCase().includes(search) || key.accessKeyId?.toLowerCase().includes(search),
+      );
     }
 
-    const overview = Array.from(apiKeysByUser.values());
+    // Pagination calculation with offset
+    const totalItems = apiKeys.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = offset > 0 ? offset : (page - 1) * limit;
+    const paginatedKeys = apiKeys.slice(startIndex, startIndex + limit);
+
+    // Fetch analytics for paginated keys in parallel
+    const analytics = await Promise.all(
+      paginatedKeys.map(async (apiKey) => {
+        const [files, usageData] = await Promise.all([
+          S3Service.listUserFiles(apiKey.accessKeyId),
+          UsageService.getUsageWithQuota(apiKey.accessKeyId),
+        ]);
+
+        // Analyze file types
+        const fileTypeAnalysis: Record<string, { count: number; totalSize: number }> = {};
+        let totalSize = 0;
+
+        for (const file of files) {
+          const category = file.contentType?.split("/")[0] || "Unknown";
+          if (!fileTypeAnalysis[category]) fileTypeAnalysis[category] = { count: 0, totalSize: 0 };
+
+          fileTypeAnalysis[category].count++;
+          fileTypeAnalysis[category].totalSize += file.sizeInBytes;
+          totalSize += file.sizeInBytes;
+        }
+
+        const fileTypeBreakdown = Object.entries(fileTypeAnalysis).map(([category, data]) => ({
+          category,
+          count: data.count,
+          totalSize: data.totalSize,
+          totalSizeFormatted: formatFileSize(data.totalSize),
+          percentage: totalSize > 0 ? Math.round((data.totalSize / totalSize) * 100) : 0,
+        }));
+
+        return {
+          id: apiKey.id,
+          accessKeyId: apiKey.accessKeyId,
+          apiKeyName: apiKey.name,
+          summary: {
+            totalObjectsUploaded: files.length,
+            totalStorageUsed: Number(usageData.usage.bytesUsed),
+            totalStorageLimit: Number(apiKey.totalStorage),
+            totalObjectsLimit: apiKey.totalObjects,
+            usagePercentage: usageData.usagePercentage,
+          },
+          fileTypeBreakdown,
+          recentFiles: files
+            .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime())
+            .slice(0, 10)
+            .map((file) => ({
+              key: file.key,
+              size: file.sizeInBytes,
+              sizeFormatted: formatFileSize(file.sizeInBytes),
+              lastModified: file.lastModified,
+              category: file.contentType?.split("/")[0] || "Unknown",
+            })),
+        };
+      }),
+    );
 
     res.status(200).json(
       new PockityBaseResponse({
         success: true,
-        message: "API key overview retrieved successfully",
+        message: "Storage analytics retrieved successfully",
         data: {
-          overview,
-          summary: {
-            totalUsers: overview.length,
-            totalApiKeys: apiKeys.length,
-            activeKeys: apiKeys.filter((key: any) => key.isActive && !key.revokedAt).length,
-            revokedKeys: apiKeys.filter((key: any) => key.revokedAt).length,
+          analytics,
+          pagination: {
+            page,
+            limit,
+            offset,
+            totalPages,
+            totalItems,
           },
         },
       }),
