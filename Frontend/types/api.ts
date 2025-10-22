@@ -18,17 +18,15 @@ export interface ApiResponse<T = unknown> {
 export interface User {
   id: string;
   email: string;
-  name: string | null;
+  name?: string;
   role: "USER" | "ADMIN";
-  emailVerified: boolean;
-  picture?: string | null;
+  picture?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface ApiKey {
   id: string;
-  apiAccessKeyId: string; // This is the actual access key
+  accessKeyId: string;
   name: string | null;
   isActive: boolean;
   createdAt: string;
