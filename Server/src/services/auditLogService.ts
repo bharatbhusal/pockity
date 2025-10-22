@@ -13,15 +13,7 @@ export enum API_REQUEST_STATUS {
 }
 
 export enum AuditAction {
-  USER_REGISTER = "USER_REGISTER",
-  USER_REGISTER_FAILED = "USER_REGISTER_FAILED",
-
-  USER_LOGIN = "USER_LOGIN",
-  USER_LOGIN_FAILED = "USER_LOGIN_FAILED",
-
-  USER_UPDATE = "USER_UPDATE",
-  USER_DELETE = "USER_DELETE",
-  USER_EMAIL_VERIFIED = "USER_EMAIL_VERIFIED",
+  USER_ONBOARD = "USER_ONBOARD",
 
   API_KEY_REQUEST_CREATE = "API_KEY_REQUEST_CREATE",
   API_KEY_REQUEST_APPROVE = "API_KEY_REQUEST_APPROVE",
@@ -95,11 +87,7 @@ export class AuditLogService {
    * @returns Promise that resolves when the log is created
    */
   static async logUserAuth(
-    action:
-      | AuditAction.USER_LOGIN
-      | AuditAction.USER_LOGIN_FAILED
-      | AuditAction.USER_REGISTER
-      | AuditAction.USER_REGISTER_FAILED,
+    action: AuditAction.USER_ONBOARD,
     data: {
       userId?: string;
       email: string;
@@ -113,58 +101,6 @@ export class AuditLogService {
       metadata: {
         email: data.email,
         failureReason: data.failureReason,
-      },
-    });
-  }
-
-  /**
-   * Log user profile updates
-   * Records when user profiles are modified, including who made the changes
-   * @param data - Update event data including target user, actor, and changes made
-   * @returns Promise that resolves when the log is created
-   */
-  static async logUserUpdate(data: {
-    userId: string;
-    actorId: string; // who made the change (could be user themselves or admin)
-    changes: Record<string, any>;
-  }): Promise<void> {
-    await this.log({
-      action: AuditAction.USER_UPDATE,
-      actorId: data.actorId,
-      detail: `User profile updated for user ${data.userId}`,
-      metadata: {
-        targetUserId: data.userId,
-        changes: data.changes,
-        selfUpdate: data.userId === data.actorId,
-      },
-    });
-  }
-
-  /**
-   * Log user account deletion
-   */
-  static async logUserDelete(data: { userId: string; actorId: string }): Promise<void> {
-    await this.log({
-      action: AuditAction.USER_DELETE,
-      actorId: data.actorId,
-      detail: `User account deleted: ${data.userId}`,
-      metadata: {
-        targetUserId: data.userId,
-        selfDelete: data.userId === data.actorId,
-      },
-    });
-  }
-
-  /**
-   * Log email verification events
-   */
-  static async logEmailVerified(data: { userId: string; email: string }): Promise<void> {
-    await this.log({
-      action: AuditAction.USER_EMAIL_VERIFIED,
-      actorId: data.userId,
-      detail: `Email verified for user: ${data.email}`,
-      metadata: {
-        email: data.email,
       },
     });
   }
