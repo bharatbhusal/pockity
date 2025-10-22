@@ -1,28 +1,39 @@
 import crypto from "crypto";
 import { env } from "../config/env";
 
-export const encrypt = (text: string) => {
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(env.ENCRYPTION_KEY, "hex");
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return `${iv.toString("hex")}:${encrypted}`;
+// Derive a 32-byte key from the ENCRYPTION_KEY env variable
+const getKey = () => {
+  return crypto.createHash("sha256").update(env.ENCRYPTION_KEY).digest(); // 32-byte buffer
 };
 
+/**
+ * Encrypts a text string using AES-256-CBC.
+ * Returns a string in the format: iv:ciphertext (both hex).
+ */
+export const encrypt = (text: string) => {
+  const iv = crypto.randomBytes(16); // random 16-byte IV
+  const key = getKey();
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const encrypted = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+  return `${iv.toString("hex")}:${encrypted.toString("hex")}`;
+};
+
+/**
+ * Decrypts a string in the format iv:ciphertext.
+ */
 export const decrypt = (hash: string) => {
   const parts = hash.split(":");
-  if (parts.length !== 2) {
-    throw new Error("Invalid hash format: must contain exactly one colon.");
+  if (parts.length !== 2) throw new Error("Invalid hash format: must contain exactly one colon.");
+
+  const [ivHex, encryptedHex] = parts;
+  if (!/^[0-9a-fA-F]+$/.test(ivHex) || !/^[0-9a-fA-F]+$/.test(encryptedHex)) {
+    throw new Error("Invalid hash format: IV or ciphertext is not valid hex.");
   }
-  const [ivHex, encryptedText] = parts;
-  if (!/^[0-9a-fA-F]+$/.test(ivHex) || !/^[0-9a-fA-F]+$/.test(encryptedText)) {
-    throw new Error("Invalid hash format: IV or encrypted text is not valid hex.");
-  }
-  const ivBuffer = Buffer.from(ivHex, "hex");
-  const key = Buffer.from(env.ENCRYPTION_KEY, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-cbc", key, ivBuffer);
-  let decrypted = decipher.update(encryptedText, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
+
+  const iv = Buffer.from(ivHex, "hex");
+  const encrypted = Buffer.from(encryptedHex, "hex");
+  const key = getKey();
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  return decrypted.toString("utf8");
 };

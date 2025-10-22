@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { UsageService } from "../services/usageService";
 import { PockityBaseResponse } from "../utils/response/PockityResponseClass";
 import { ApiKeyRepository } from "../repositories";
+import { decrypt } from "../utils/encryption";
 
 // Get user profile
 export const getUserProfileController = async (req: Request, res: Response, next: NextFunction) => {
@@ -26,7 +27,7 @@ export const getUserProfileController = async (req: Request, res: Response, next
           apiKeys: apiKeys.map((key: any) => ({
             id: key.id,
             accessKeyId: key.accessKeyId,
-            secretHash: key.secretHash,
+            secretHash: decrypt(key.secretHash),
             name: key.name,
             isActive: key.isActive,
             createdAt: key.createdAt,

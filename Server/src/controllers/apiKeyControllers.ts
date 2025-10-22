@@ -8,11 +8,11 @@ import {
   PockityErrorNotFound,
   PockityErrorUnauthorized,
 } from "../utils/response/PockityErrorClasses";
-import { hashData } from "../utils/hash";
 import { API_REQUEST_STATUS, API_REQUEST_TYPE, AuditAction, AuditLogService } from "../services/auditLogService";
 import { ApiKeyRequestRepository } from "../repositories/apiKeyRequestRepository";
 import { PockityErrorBadRequest } from "../utils/response/PockityErrorClasses";
 import { EmailService } from "../services/emailService";
+import { decrypt, encrypt } from "../utils/encryption";
 
 const revokeApiKeySchema = z.object({
   id: z.string().min(1, "API key ID is required"),
@@ -45,7 +45,7 @@ export const listApiKeysController = async (req: Request, res: Response, next: N
     const sanitizedKeys = apiKeys.map((key: any) => ({
       id: key.id,
       accessKeyId: key.accessKeyId,
-      secretHash: key.secretHash,
+      secretHash: decrypt(key.secretHash),
       name: key.name,
       isActive: key.isActive,
       createdAt: key.createdAt,
@@ -159,7 +159,7 @@ export const getApiKeyController = async (req: Request, res: Response, next: Nex
         data: {
           id: apiKey.id,
           accessKeyId: apiKey.accessKeyId,
-          secretHash: apiKey.secretHash,
+          secretHash: decrypt(apiKey.secretHash),
           name: apiKey.name,
           isActive: apiKey.isActive,
           createdAt: apiKey.createdAt,
@@ -529,7 +529,7 @@ export const reviewApiKeyRequestController = async (req: Request, res: Response,
         const secretKey = `sk_${crypto.randomBytes(32).toString("hex")}`;
 
         // Hash the secret key before storing
-        const secretHash = await hashData(secretKey);
+        const secretHash = encrypt(secretKey);
 
         newApiKey = await ApiKeyRepository.create({
           accessKeyId: apiAccessKeyId,
